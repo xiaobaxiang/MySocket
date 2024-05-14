@@ -7,21 +7,24 @@ namespace TestClient
         static void Main(string[] args)
         {
             var client = new ClientSocket();
-            client.Error += (sender, e) => {
+            client.Error += (sender, e) =>
+            {
                 Console.WriteLine("[" + DateTime.Now.ToString("MM-dd HH:mm:ss") + "] "
                     + e.Exception.Message + e.Exception.StackTrace);
             };
-            client.Receive += (sender, e) => {
-                switch (e.Messager.Action)
-                {
-                }
+            client.Receive += (sender, e) =>
+            {
+                // switch (e.Messager.Action)
+                // {
+                // }
             };
             client.Connect("localhost", 19990);
 
-            SocketMessager messager = new SocketMessager("GetDatabases", 1);
+            SocketMessager messager = new SocketMessager(0, 0, 0, 0, 0, 0, new byte[0]);
             object dbs = null;
             //以下代码等于同步，直到服务端响应(会执行委托)或超时
-            client.Write(messager, (sender2, e2) => {
+            client.Write(messager, (sender2, e2) =>
+            {
                 //服务端正常响应会执行这里
                 dbs = e2.Messager;
             });

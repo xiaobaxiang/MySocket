@@ -6,12 +6,31 @@ using System.Text;
 using System.Threading;
 using System.Runtime.Serialization.Json;
 using System.Linq;
+using Serilog;
+using Serilog.Core;
 
 public class BaseSocket
 {
 
-	public static int HeadLength = 8;
+	//public static int HeadLength = 8;
+	public static int HeadLength = 12;//起始到数据长度
 	public static int BuffLength = 1444;
+	public static readonly byte[] StartBytes = new byte[] { 0xD5, 0xF0, 0x01, 0x00 };//起始标志
+
+	public static Logger _byteLog;
+	static BaseSocket()
+	{
+		var outputTemplate = "{Timestamp:HH:mm:ss.ffffff} [{Level:u3}] {Message:lj}{NewLine}";
+		_byteLog = new LoggerConfiguration()
+		.WriteTo.Console(outputTemplate: outputTemplate)
+		.WriteTo.File("bytelog/.log", outputTemplate: outputTemplate, rollingInterval: RollingInterval.Day)
+		.CreateLogger();
+	}
+	public static void WriteLog(byte[] bytes)
+	{
+		_byteLog.Information(BitConverter.ToString(bytes));
+	}
+	//public static int BuffLength = 1450;
 	public static byte[] Read(Stream stream, byte[] end)
 	{
 		using (MemoryStream ms = new MemoryStream())
@@ -185,54 +204,67 @@ public class SocketMessager
 	private ushort _seq;
 	private ushort _dataLen;
 	private byte _ID;
+	private byte _EOF;
 	private byte _currPacket;
 	private byte _totalPacket;
+	private string _bcd;
 	private byte[] _picData;
 
-	public SocketMessager(uint remoteTime, ushort seq, ushort dataLen, byte ID, byte currPacket, byte totalPacket, byte[] picData)
+	//public SocketMessager(uint remoteTime, ushort seq, ushort dataLen, byte ID, byte currPacket, byte totalPacket, byte[] bcd, byte[] picData)
+	public SocketMessager(uint remoteTime, ushort seq, ushort dataLen, byte ID, byte EOF, byte currPacket, byte totalPacket, byte[] picData)
 	{
 		this._id = Interlocked.Increment(ref _identity);
 		this._remoteTime = remoteTime;
 		this._seq = seq;
 		this._dataLen = dataLen;
 		this._ID = ID;
+		this._EOF = EOF;
 		this._currPacket = currPacket;
 		this._totalPacket = totalPacket;
+		var bcdSb = new StringBuilder();
+		// for (var i = 0; i < bcd.Length; i++)
+		// {
+		// 	bcdSb.Append(BCDToDecStr(bcd[i]));
+		// }
+		this._bcd = bcdSb.ToString();
 		this._picData = picData;
+	}
+
+	/// <summary>
+	/// BCD格式byte 转10进制字符串
+	/// </summary>
+	/// <param name="data"></param>
+	/// <returns></returns>
+	private string BCDToDecStr(byte data)
+	{
+		return (((data & 0xF0) >> 4) * 10 + (data & 0X0F)).ToString().PadLeft(2, '0');
 	}
 
 	public override string ToString()
 	{
-		return $"time:{this.RemoteTime.ToString("yyyy-MM-dd HH:mm:ss")}\tid:{this._id}\tseq:{this._seq}\tdataLen:{this._dataLen}\tID:{this._ID}\tcurrPacket:{this._currPacket}\ttotalPacket:{this._totalPacket}\tpicDateLen:{this._picData.Length}";
+		return $"time:{this.RemoteTime.ToString("yyyy-MM-dd HH:mm:ss")}\tid:{this._id}\tseq:{this._seq}\tdataLen:{this._dataLen}\tID:{this._ID}\tcurrPacket:{this._currPacket}\ttotalPacket:{this._totalPacket}\tbcd:{this._bcd}\tpicDateLen:{this._picData.Length}";
+		//return $"time:{this.RemoteTime.ToString("yyyy-MM-dd HH:mm:ss")}\tid:{this._id}\tID:{this._ID}\tEOF:{this._EOF}\tcurrPacket:{this._currPacket}\ttotalPacket:{this._totalPacket}\tbcd:{this._bcd}\tpicDateLen:{this._picData.Length}";
 	}
 
 	public static SocketMessager Parse(byte[] data)
 	{
 		if (data == null) return null;
 		if (data.Length < 20) return null;
+		//Console.WriteLine(BitConverter.ToString(data));
 		//int idx = BaseSocket.findBytes(data, new byte[] { 0xD5, 0xF0, 0x01, 0x00 }, 0);
 		int idx = 0;
 		SocketMessager messager;
-		using (MemoryStream ms = new MemoryStream())
-		{
-			ms.Write(data, idx + 2, data.Length - idx - 2);
-			var dataLen = BitConverter.ToUInt16(data, idx + 10);
-			messager = new SocketMessager(
-				BitConverter.ToUInt32(data, idx + 4),
-				BitConverter.ToUInt16(data, idx + 8),
-				dataLen,
-				data[idx + 16],
-				data[idx + 18],
-				data[idx + 19],
-				data.Skip(20).Take(dataLen - 4).ToArray()
-			);
-			//using (DeflateStream ds = new DeflateStream(ms, CompressionMode.Decompress)) {
-			//	using (MemoryStream msOut = new MemoryStream()) {
-			//		ds.CopyTo(msOut);
-			//		messager = new SocketMessager(loc3, loc4, ms.Length > 0 ? BaseSocket.Deserialize(ms.ToArray()) : null);
-			//	}
-			//}
-		}
+		var dataLen = BitConverter.ToUInt16(data, idx + 10);
+		messager = new SocketMessager(
+			BitConverter.ToUInt32(data, idx + 4),
+			BitConverter.ToUInt16(data, idx + 8),
+			dataLen,
+			data[idx + 16],
+			data[idx + 17],
+			data[idx + 18],
+			data[idx + 19],
+			data.Skip(20).ToArray()
+		);
 		return messager;
 	}
 
@@ -260,6 +292,10 @@ public class SocketMessager
 	{
 		get { return _ID; }
 	}
+	public byte EOF
+	{
+		get { return _EOF; }
+	}
 	public byte CurrPacket
 	{
 		get { return _currPacket; }
@@ -268,8 +304,8 @@ public class SocketMessager
 	{
 		get { return _totalPacket; }
 	}
-	public String PicData
+	public byte[] PicData
 	{
-		get { return Convert.ToBase64String(_picData); }
+		get { return _picData; }
 	}
 }

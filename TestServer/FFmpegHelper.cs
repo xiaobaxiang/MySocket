@@ -1,10 +1,12 @@
 ﻿using FFmpeg.AutoGen;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace TestServer
+namespace FFmpegAnalyzer
 {
     public enum AV_BUFFERSRC_FLAG
     {
@@ -14,7 +16,7 @@ namespace TestServer
     }
     public static class FFmpegHelper
     {
-        static FFmpegHelper()
+        public static void RegisterFFmpegBinaries()
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
@@ -36,6 +38,7 @@ namespace TestServer
                         Console.WriteLine($"FFmpeg version info: {ffmpeg.av_version_info()}");
                         Console.WriteLine($"LIBAVFORMAT Version: {ffmpeg.LIBAVFORMAT_VERSION_MAJOR}.{ffmpeg.LIBAVFORMAT_VERSION_MINOR}");
                         #endif
+                        
                         return;
                     }
 
@@ -48,6 +51,67 @@ namespace TestServer
                 throw new NotSupportedException(); // fell free add support for platform of your choose
                 
         }
+
+        /// <summary>
+        /// 配置日志
+        /// </summary>
+        public static unsafe void SetupLogging()
+        {
+            ffmpeg.av_log_set_level(ffmpeg.AV_LOG_VERBOSE);
+
+            // do not convert to local function
+            av_log_set_callback_callback logCallback = (p0, level, format, vl) =>
+            {
+                if (level > ffmpeg.av_log_get_level()) return;
+
+                var lineSize = 1024;
+                var lineBuffer = stackalloc byte[lineSize];
+                var printPrefix = 1;
+                ffmpeg.av_log_format_line(p0, level, format, vl, lineBuffer, lineSize, &printPrefix);
+                var line = Marshal.PtrToStringAnsi((IntPtr) lineBuffer);
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.Write(line);
+                Console.ResetColor();
+            };
+
+            ffmpeg.av_log_set_callback(logCallback);
+        }
+
+        /// <summary>
+        /// 配置硬件解码器
+        /// </summary>
+        /// <param name="HWtype"></param>
+        public static void ConfigureHWDecoder(out AVHWDeviceType HWtype)
+        {
+            HWtype = AVHWDeviceType.AV_HWDEVICE_TYPE_NONE;
+            Console.WriteLine("Use hardware acceleration for decoding?[n]");
+            var key = Console.ReadLine();
+            var availableHWDecoders = new Dictionary<int, AVHWDeviceType>();
+            if (key == "y")
+            {
+                Console.WriteLine("Select hardware decoder:");
+                var type = AVHWDeviceType.AV_HWDEVICE_TYPE_NONE;
+                var number = 0;
+                while ((type = ffmpeg.av_hwdevice_iterate_types(type)) != AVHWDeviceType.AV_HWDEVICE_TYPE_NONE)
+                {
+                    Console.WriteLine($"{++number}. {type}");
+                    availableHWDecoders.Add(number, type);
+                }
+                if (availableHWDecoders.Count == 0)
+                {
+                    Console.WriteLine("Your system have no hardware decoders.");
+                    HWtype = 0;
+                    return;
+                }
+                int decoderNumber = availableHWDecoders.SingleOrDefault(t => t.Value == AVHWDeviceType.AV_HWDEVICE_TYPE_DXVA2).Key;
+                if (decoderNumber == 0)
+                    decoderNumber = availableHWDecoders.First().Key;
+                Console.WriteLine($"Selected [{decoderNumber}]");
+                int.TryParse(Console.ReadLine(),out var inputDecoderNumber);
+                availableHWDecoders.TryGetValue(inputDecoderNumber == 0 ? decoderNumber: inputDecoderNumber, out HWtype);
+            }
+        }
+        
         const int INBUF_SIZE = 800000;
         public static unsafe void video_decode_example(string filename, AVCodecID codec_id, string outfileDirPath)
         {
@@ -217,6 +281,7 @@ namespace TestServer
                 Console.WriteLine($"saving frame {pCodecContext->frame_num}");
 
                 string outputFile = Path.Combine(outfileDirPath, "noname_" + pCodecContext->frame_num + ".pgm");
+                //string outputFile = Path.Combine(outfileDirPath, DateTime.Now.Ticks + ".pgm");
                 pgm_save(frame->data[0], frame->linesize[0], frame->width, frame->height, outputFile);
             }
 

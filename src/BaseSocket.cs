@@ -26,9 +26,9 @@ public class BaseSocket
 		.WriteTo.File("bytelog/.log", outputTemplate: outputTemplate, rollingInterval: RollingInterval.Day)
 		.CreateLogger();
 	}
-	public static void WriteLog(byte[] bytes)
+	public static void WriteLog(string log)
 	{
-		_byteLog.Information(BitConverter.ToString(bytes));
+		_byteLog.Information(log);
 	}
 	//public static int BuffLength = 1450;
 	public static byte[] Read(Stream stream, byte[] end)
@@ -242,7 +242,7 @@ public class SocketMessager
 
 	public override string ToString()
 	{
-		return $"time:{this.RemoteTime.ToString("yyyy-MM-dd HH:mm:ss")}\tid:{this._id}\tseq:{this._seq}\tdataLen:{this._dataLen}\tID:{this._ID}\tcurrPacket:{this._currPacket}\ttotalPacket:{this._totalPacket}\tbcd:{this._bcd}\tpicDateLen:{this._picData.Length}";
+		return $"time:{this.RemoteTime.ToString("yyyy-MM-dd HH:mm:ss")}\tid:{this._id}\tseq:{this._seq}\tdataLen:{this._dataLen}\tID:{this._ID}\tEOF:{this._EOF}\tcurrPacket:{this._currPacket}\ttotalPacket:{this._totalPacket}\tbcd:{this._bcd}\tpicDateLen:{this._picData.Length}";
 		//return $"time:{this.RemoteTime.ToString("yyyy-MM-dd HH:mm:ss")}\tid:{this._id}\tID:{this._ID}\tEOF:{this._EOF}\tcurrPacket:{this._currPacket}\ttotalPacket:{this._totalPacket}\tbcd:{this._bcd}\tpicDateLen:{this._picData.Length}";
 	}
 

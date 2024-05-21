@@ -566,11 +566,11 @@ public class ServerSocketAsync : IDisposable
 					return;
 				}
 
-				BaseSocket.WriteLog(dr.Buffer);
+				//BaseSocket.WriteLog(BitConverter.ToString(dr.Buffer));
 				dr.Over -= overs;
 				if (dr.Over > 0)
 				{
-					_serverLog.Information("已读取" + overs + "没有读取完" + dr.Over + "继续读取 " + dr.Buffer.Length);
+					//_serverLog.Information("已读取" + overs + "没有读取完" + dr.Over + "继续读取 " + dr.Buffer.Length);
 					dr.TempStream.Write(dr.Buffer, 0, overs);//缓存收到的断包数据
 					try
 					{
@@ -586,9 +586,9 @@ public class ServerSocketAsync : IDisposable
 				else if (dr.Type == DataReadInfoType.Head)
 				{
 					//头部12字节部分字节可能有缓存的情况
-					dr.TempStream.Write(dr.Buffer, 0, dr.Buffer.Length);
+					dr.TempStream.Write(dr.Buffer, 0, overs);
 					dr.Buffer = dr.TempStream.ToArray();
-					_serverLog.Information("Head-" + overs + ":" + BitConverter.ToString(dr.Buffer));
+					//_serverLog.Information("Head-" + overs + ":" + BitConverter.ToString(dr.Buffer));
 					//判断有无获取数据错乱的情况
 					if (!(dr.Buffer[0] == BaseSocket.StartBytes[0] && dr.Buffer[1] == BaseSocket.StartBytes[1] && dr.Buffer[2] == BaseSocket.StartBytes[2] && dr.Buffer[3] == BaseSocket.StartBytes[3]))
 					{
@@ -616,9 +616,9 @@ public class ServerSocketAsync : IDisposable
 				else
 				{
 					//头部12字节和可能有断包缓存的情况
-					dr.TempStream.Write(dr.Buffer, 0, dr.Buffer.Length);
+					dr.TempStream.Write(dr.Buffer, 0, overs);
 					dr.Buffer = dr.TempStream.ToArray();
-					_serverLog.Information("Body-" + overs + ":" + BitConverter.ToString(dr.Buffer.Take(40).ToArray()) + " ...");
+					//_serverLog.Information("Body-" + overs + ":" + BitConverter.ToString(dr.Buffer.Take(40).ToArray()) + " ...");
 					dr.AcceptSocket.OnDataAvailable(dr);
 				}
 			}

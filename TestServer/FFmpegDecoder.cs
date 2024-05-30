@@ -1,7 +1,13 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using FFmpeg.AutoGen;
+using Serilog;
+using TestServer;
 
 namespace FFmpegAnalyzer
 {
@@ -10,12 +16,15 @@ namespace FFmpegAnalyzer
     /// </summary>
     internal unsafe class FFmpegDecoder
     {
+
+
         /// <param name="decodedFrameSize">解码后数据的大小</param>
         /// <param name="isRgb">Rgb数据</param>
         public FFmpegDecoder(Size decodedFrameSize, bool isRgb = true)
         {
             _decodedFrameSize = decodedFrameSize;
             _isRgb = isRgb;
+
         }
 
         /// <summary>
@@ -66,7 +75,10 @@ namespace FFmpegAnalyzer
             ffmpeg.av_image_fill_arrays(ref _dstData, ref _dstLineSize, (byte*)_convertedFrameBufferPtr, destinationPixelFormat,
                 _decodedFrameSize.Width, _decodedFrameSize.Height, 1);
             _isCodecRunning = true;
+
         }
+
+        int count = -1;
 
         /// <summary>
         /// 解码
@@ -79,13 +91,19 @@ namespace FFmpegAnalyzer
             {
                 throw new InvalidOperationException("解码器未运行!");
             }
+
+
             var waitDecodePacket = ffmpeg.av_packet_alloc();
             var waitDecoderFrame = ffmpeg.av_frame_alloc();
             ffmpeg.av_frame_unref(waitDecoderFrame);
+
+
             fixed (byte* waitDecodeData = frameBytes)
             {
                 waitDecodePacket->data = waitDecodeData;
                 waitDecodePacket->size = frameBytes.Length;
+                waitDecodePacket->pts = ffmpeg.av_rescale_q(count++, new AVRational { num = 1, den = 30 }, new AVRational { num = 1, den = 30 }); ;
+                waitDecodePacket->dts = waitDecodePacket->pts;
                 ffmpeg.av_frame_unref(waitDecoderFrame);
                 try
                 {
@@ -94,6 +112,9 @@ namespace FFmpegAnalyzer
                     {
                         ffmpeg.avcodec_send_packet(_pDecodecContext, waitDecodePacket);
                         error = ffmpeg.avcodec_receive_frame(_pDecodecContext, waitDecoderFrame);
+
+                        //RtmpPusher.publishFile();
+                        //_pusher.PushFrame(waitDecoderFrame);
                     } while (error == ffmpeg.AVERROR(ffmpeg.EAGAIN));
                 }
                 finally
@@ -110,24 +131,10 @@ namespace FFmpegAnalyzer
                 byte[] buffer = new byte[length];
                 Marshal.Copy((IntPtr)decodeAfterFrame.data[0], buffer, 0, buffer.Length);
 
-                // byte[] buffer = null;
-                // if (_isRgb)
-                // {
-                //     var decodeAfterFrame = ConvertToRgb(waitDecoderFrame);
-                //     var length = decodeAfterFrame.height * decodeAfterFrame.width * 3;
-                //     buffer = new byte[length];
-                //     Marshal.Copy((IntPtr)decodeAfterFrame.data[0], buffer, 0, buffer.Length);
-                // }
-                // else
-                // {
-                //     var length = Convert.ToInt32(Math.Floor(waitDecoderFrame->height * waitDecoderFrame->width * 1.5));
-                //     buffer = new byte[length];
-                //     Marshal.Copy((IntPtr)waitDecoderFrame->data[0], buffer, 0, buffer.Length);
-                // }
-
                 return new Tuple<AVFrame, byte[]>(decodeAfterFrame, buffer);
             }
         }
+
 
         /// <summary>
         /// 释放
@@ -166,13 +173,16 @@ namespace FFmpegAnalyzer
                 data = decodeAfterData,
                 linesize = lineSize,
                 width = _decodedFrameSize.Width,
-                height = _decodedFrameSize.Height
+                height = _decodedFrameSize.Height,
+                pts = waitDecoderFrame->pts,
+                pkt_dts = waitDecoderFrame->pkt_dts
             };
         }
 
         //解码器
         private AVCodec* _pDecodec;
         private AVCodecContext* _pDecodecContext;
+        //private RtmpStreamer _pusher;
         //转换缓存区
         private IntPtr _convertedFrameBufferPtr;
         private byte_ptrArray4 _dstData;
@@ -183,5 +193,7 @@ namespace FFmpegAnalyzer
         private readonly bool _isRgb;
         //解码器正在运行
         private bool _isCodecRunning;
+
+        //private AVFormatContext* _outputContext;
     }
 }

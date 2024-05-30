@@ -209,15 +209,17 @@ public class SocketMessager
 	private byte _totalPacket;
 	private string _bcd;
 	private byte[] _picData;
+	private string _sn;
 
 	//public SocketMessager(uint remoteTime, ushort seq, ushort dataLen, byte ID, byte currPacket, byte totalPacket, byte[] bcd, byte[] picData)
-	public SocketMessager(uint remoteTime, ushort seq, ushort dataLen, byte ID, byte EOF, byte currPacket, byte totalPacket, byte[] picData)
+	public SocketMessager(uint remoteTime, ushort seq, ushort dataLen, byte ID, byte EOF, byte currPacket, byte totalPacket,string sn, byte[] picData)
 	{
 		this._id = Interlocked.Increment(ref _identity);
 		this._remoteTime = remoteTime;
 		this._seq = seq;
 		this._dataLen = dataLen;
 		this._ID = ID;
+		this._sn = sn;
 		this._EOF = EOF;
 		this._currPacket = currPacket;
 		this._totalPacket = totalPacket;
@@ -263,15 +265,36 @@ public class SocketMessager
 			data[idx + 17],
 			data[idx + 18],
 			data[idx + 19],
-			data.Skip(20).ToArray()
+            BCDToString(data, idx + 20,6),
+            data.Skip(26).ToArray()
 		);
+
 		return messager;
 	}
 
-	/// <summary>
-	/// 消息ID，每个一消息ID都是惟一的，同步发送时用
-	/// </summary>
-	public int Id
+
+    static string BCDToString(byte[] bytes, int startIndex, int length)
+    {
+        StringBuilder sb = new StringBuilder();
+
+        for (int i = startIndex; i < startIndex + length; i++)
+        {
+            // 将高4位和低4位分别转换为十进制数字
+            byte highDigit = (byte)((bytes[i] >> 4) & 0x0F);
+            byte lowDigit = (byte)(bytes[i] & 0x0F);
+
+            // 将两个数字连接成字符串
+            sb.Append(highDigit);
+            sb.Append(lowDigit);
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// 消息ID，每个一消息ID都是惟一的，同步发送时用
+    /// </summary>
+    public int Id
 	{
 		get { return _id; }
 		set { _id = value; }
@@ -284,7 +307,12 @@ public class SocketMessager
 	{
 		get { return _seq; }
 	}
-	public ushort DataLen
+
+    public string Sn
+    {
+        get { return _sn; }
+    }
+    public ushort DataLen
 	{
 		get { return _dataLen; }
 	}

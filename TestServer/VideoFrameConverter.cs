@@ -1,8 +1,10 @@
 using FFmpeg.AutoGen;
 using System;
 using System.Drawing;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
+using TestServer;
 
 namespace FFmpegAnalyzer
 {
@@ -82,6 +84,44 @@ namespace FFmpegAnalyzer
                 width = (int)_destinationSize.Width,
                 height = (int)_destinationSize.Height
             };
+        }
+
+        public MemoryStream SaveJpg(AVFrame sourceFrame, string fileName, string fileUrl)
+        {
+            var frame = &sourceFrame;
+            // 设置图像参数（宽度、高度、像素格式等）
+            int width = 640;
+            int height = 480;
+            // 设置 YUV 参数
+            AVPixelFormat pixelFormat = AVPixelFormat.AV_PIX_FMT_YUV420P;
+            var _dstData = new byte_ptrArray4();
+            var _dstLineSize = new int_array4();
+            // 分配输出 RGB 图像的缓冲区
+            ffmpeg.av_malloc((ulong)ffmpeg.av_image_alloc(ref _dstData, ref _dstLineSize, width, height, AVPixelFormat.AV_PIX_FMT_RGB24, 1));
+
+            // 创建 SwsContext 对象进行颜色空间转换
+            SwsContext* swsContext = ffmpeg.sws_getContext(width, height, pixelFormat,
+                                                            width, height, AVPixelFormat.AV_PIX_FMT_RGB24,
+                                                            ffmpeg.SWS_BILINEAR, null, null, null);
+
+            // 转换颜色空间
+            ffmpeg.sws_scale(swsContext, frame->data, frame->linesize, 0, height, _dstData, _dstLineSize);
+
+            // 创建 Bitmap 对象并从 RGB 数据中加载图像
+            System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(width, height, width * 3, System.Drawing.Imaging.PixelFormat.Format24bppRgb, new IntPtr(_dstData[0]));
+
+            //stream.StartStreaming(bitmap);
+
+            // 保存图像
+            //bitmap.Save(fileUrl + "/" + fileName + ".jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+            var jpegStream = new MemoryStream();
+            bitmap.Save(jpegStream, System.Drawing.Imaging.ImageFormat.Jpeg);
+
+            // 释放资源
+            ffmpeg.av_free(_dstData[0]);
+            ffmpeg.sws_freeContext(swsContext);
+
+            return jpegStream;
         }
     }
 }

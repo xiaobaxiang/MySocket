@@ -20,7 +20,7 @@ namespace TestClient
             };
             client.Connect("localhost", 19990);
 
-            SocketMessager messager = new SocketMessager(0, 0, 0, 0, 0, 0, new byte[0]);
+            SocketMessager messager = new SocketMessager(0, 0, 0, 0, 0, 0, 0, "", new byte[0]);
             object dbs = null;
             //以下代码等于同步，直到服务端响应(会执行委托)或超时
             client.Write(messager, (sender2, e2) =>

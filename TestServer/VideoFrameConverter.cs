@@ -1,10 +1,8 @@
 using FFmpeg.AutoGen;
+using SkiaSharp;
 using System;
-using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Windows;
-using TestServer;
 
 namespace FFmpegAnalyzer
 {
@@ -107,15 +105,25 @@ namespace FFmpegAnalyzer
             // 转换颜色空间
             ffmpeg.sws_scale(swsContext, frame->data, frame->linesize, 0, height, _dstData, _dstLineSize);
 
-            // 创建 Bitmap 对象并从 RGB 数据中加载图像
-            System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(width, height, width * 3, System.Drawing.Imaging.PixelFormat.Format24bppRgb, new IntPtr(_dstData[0]));
+            // // 创建 Bitmap 对象并从 RGB 数据中加载图像
+            // System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(width, height, width * 3, System.Drawing.Imaging.PixelFormat.Format24bppRgb, new IntPtr(_dstData[0]));
 
-            //stream.StartStreaming(bitmap);
+            // //stream.StartStreaming(bitmap);
 
-            // 保存图像
-            //bitmap.Save(fileUrl + "/" + fileName + ".jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+            // // 保存图像
+            // //bitmap.Save(fileUrl + "/" + fileName + ".jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+            // var jpegStream = new MemoryStream();
+            // bitmap.Save(jpegStream, System.Drawing.Imaging.ImageFormat.Jpeg);
+
+            using SKBitmap bitmap = new SKBitmap(width, height);
+            using SKCanvas canvas = new SKCanvas(bitmap);
+            SKImageInfo info = new SKImageInfo(width, height, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
+            using SKData data = SKData.Create(new IntPtr(_dstData[0]), width * height * 3);
+            using SKImage image = SKImage.FromPixels(info, data.Data, width * 3);
+            canvas.DrawBitmap(bitmap, new SKRect(0, 0, width, height));
+            canvas.Flush();
             var jpegStream = new MemoryStream();
-            bitmap.Save(jpegStream, System.Drawing.Imaging.ImageFormat.Jpeg);
+            bitmap.Encode(jpegStream, SKEncodedImageFormat.Jpeg, 100);
 
             // 释放资源
             ffmpeg.av_free(_dstData[0]);

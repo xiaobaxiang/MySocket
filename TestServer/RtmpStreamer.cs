@@ -133,6 +133,10 @@ namespace TestServer
                 {
                     Console.WriteLine(framePts + "发送成功");
                 }
+                else
+                {
+                    Console.WriteLine(framePts + "发送失败," + res);
+                }
                 ffmpeg.av_packet_unref(pkt);
             }
             ffmpeg.av_packet_unref(pkt);

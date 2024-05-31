@@ -20,7 +20,8 @@ namespace TestServer
 {
     class PicItem
     {
-        public long TimeTicket { get; set; }
+        public string Sn { get; set; }
+        public long Time { get; set; }
 
         /// <summary>
         /// 0-300毫秒图片
@@ -40,7 +41,7 @@ namespace TestServer
         /// <summary>
         /// 获取时间戳
         /// </summary>
-        public static long TimeToken => (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;
+        public static long TimeToken => (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalMicroseconds;
         public static readonly JsonSerializerOptions JsonSerializerOptions = new JsonSerializerOptions()
         {
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
@@ -105,7 +106,7 @@ namespace TestServer
                     using var jpegStream = videoConvert.SaveJpg(res.Item1, timeTicket.ToString(), dirPath);
                     if (!jpegDic.TryGetValue(b.AcceptSocket.Id, out PicItem picItem))
                     {
-                        picItem = new PicItem { TimeTicket = TimeToken };
+                        picItem = new PicItem { Time = TimeToken };
                         jpegDic.TryAdd(b.AcceptSocket.Id, picItem);
                     }
                     if (DateTime.Now.Millisecond < 300)
@@ -123,7 +124,8 @@ namespace TestServer
                         //picItem.Pic3 = "data:image/jpeg;base64," + Convert.ToBase64String(jpegStream.ToArray());
                         picItem.Pic3 = Convert.ToBase64String(jpegStream.ToArray());
                     }
-                    picItem.TimeTicket = TimeToken;
+                    picItem.Time = TimeToken;
+                    picItem.Sn = b.Messager.Sn;
 
                     //推流
                     if (rtmpPusher.ContainsKey(b.Messager.Sn))

@@ -25,9 +25,9 @@ namespace TestServer
 
             // 创建 MQTT 客户端选项
             var options = new MqttClientOptionsBuilder()
-                .WithTcpServer("emqx.zzcyi.cn") // MQTT broker 地址 端口
+                .WithTcpServer("47.90.134.89", 7083) // MQTT broker 地址 端口 emqx.zzcyi.cn 47.90.134.89:7083
                 .WithClientId("ffmpeg_client")
-                .WithCredentials("admin", "1ad6c09e") // 设置账号密码
+                .WithCredentials("admin", "eLzuAJ@ghcZJkAD4m") // 设置账号密码 1ad6c09e eLzuAJ@ghcZJkAD4m
                 .Build();
 
             var i = 0;

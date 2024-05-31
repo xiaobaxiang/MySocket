@@ -37,6 +37,10 @@ namespace TestServer
     }
     class Program
     {
+        /// <summary>
+        /// 获取时间戳
+        /// </summary>
+        public static long TimeToken => (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;
         public static readonly JsonSerializerOptions JsonSerializerOptions = new JsonSerializerOptions()
         {
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
@@ -77,7 +81,7 @@ namespace TestServer
             };
             server.Receive += (a, b) =>
             {
-                ServerSocketAsync._serverLog.Information("{3} 接收到了{2}消息{0}：{1}", b.AcceptSocket.Id, b.Messager, b.AcceptSocket.TcpClient.Client.RemoteEndPoint, Thread.CurrentThread.ManagedThreadId);
+                //ServerSocketAsync._serverLog.Information("{3} 接收到了{2}消息{0}：{1}", b.AcceptSocket.Id, b.Messager, b.AcceptSocket.TcpClient.Client.RemoteEndPoint, Thread.CurrentThread.ManagedThreadId);
                 //b.AcceptSocket.Write(b.Messager);
                 videoStreamDic.TryGetValue(b.AcceptSocket.Id, out MemoryStream tmpVideoMem);
                 if (tmpVideoMem == null)
@@ -101,22 +105,25 @@ namespace TestServer
                     using var jpegStream = videoConvert.SaveJpg(res.Item1, timeTicket.ToString(), dirPath);
                     if (!jpegDic.TryGetValue(b.AcceptSocket.Id, out PicItem picItem))
                     {
-                        picItem = new PicItem { TimeTicket = DateTime.Now.Ticks };
+                        picItem = new PicItem { TimeTicket = TimeToken };
                         jpegDic.TryAdd(b.AcceptSocket.Id, picItem);
                     }
                     if (DateTime.Now.Millisecond < 300)
                     {
-                        picItem.Pic1 = "data:image/jpeg;base64," + Convert.ToBase64String(jpegStream.ToArray());
+                        //picItem.Pic1 = "data:image/jpeg;base64," + Convert.ToBase64String(jpegStream.ToArray());
+                        picItem.Pic1 = Convert.ToBase64String(jpegStream.ToArray());
                     }
                     else if (DateTime.Now.Millisecond < 600)
                     {
-                        picItem.Pic2 = "data:image/jpeg;base64," + Convert.ToBase64String(jpegStream.ToArray());
+                        //picItem.Pic2 = "data:image/jpeg;base64," + Convert.ToBase64String(jpegStream.ToArray());
+                        picItem.Pic2 = Convert.ToBase64String(jpegStream.ToArray());
                     }
                     else if (DateTime.Now.Millisecond < 900)
                     {
-                        picItem.Pic3 = "data:image/jpeg;base64," + Convert.ToBase64String(jpegStream.ToArray());
+                        //picItem.Pic3 = "data:image/jpeg;base64," + Convert.ToBase64String(jpegStream.ToArray());
+                        picItem.Pic3 = Convert.ToBase64String(jpegStream.ToArray());
                     }
-                    picItem.TimeTicket = DateTime.Now.Ticks;
+                    picItem.TimeTicket = TimeToken;
 
                     //推流
                     if (rtmpPusher.ContainsKey(b.Messager.Sn))

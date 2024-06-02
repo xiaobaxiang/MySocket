@@ -94,16 +94,13 @@ namespace FFmpegAnalyzer
             AVPixelFormat pixelFormat = AVPixelFormat.AV_PIX_FMT_YUV420P;
             var _dstData = new byte_ptrArray4();
             var _dstLineSize = new int_array4();
-            // 分配输出 RGB 图像的缓冲区
-            ffmpeg.av_malloc((ulong)ffmpeg.av_image_alloc(ref _dstData, ref _dstLineSize, width, height, AVPixelFormat.AV_PIX_FMT_RGB24, 1));
+            // // 分配输出 RGB 图像的缓冲区
+            // ffmpeg.av_malloc((ulong)ffmpeg.av_image_alloc(ref _dstData, ref _dstLineSize, width, height, AVPixelFormat.AV_PIX_FMT_RGB24, 1));
 
-            // 创建 SwsContext 对象进行颜色空间转换
-            SwsContext* swsContext = ffmpeg.sws_getContext(width, height, pixelFormat,
-                                                            width, height, AVPixelFormat.AV_PIX_FMT_RGB24,
-                                                            ffmpeg.SWS_BILINEAR, null, null, null);
-
-            // 转换颜色空间
-            ffmpeg.sws_scale(swsContext, frame->data, frame->linesize, 0, height, _dstData, _dstLineSize);
+            // // 创建 SwsContext 对象进行颜色空间转换
+            // SwsContext* swsContext = ffmpeg.sws_getContext(width, height, pixelFormat,
+            //                                                 width, height, AVPixelFormat.AV_PIX_FMT_RGB24,
+            //                                                 ffmpeg.SWS_BILINEAR, null, null, null);
 
             // // 创建 Bitmap 对象并从 RGB 数据中加载图像
             // System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(width, height, width * 3, System.Drawing.Imaging.PixelFormat.Format24bppRgb, new IntPtr(_dstData[0]));
@@ -115,13 +112,20 @@ namespace FFmpegAnalyzer
             // var jpegStream = new MemoryStream();
             // bitmap.Save(jpegStream, System.Drawing.Imaging.ImageFormat.Jpeg);
 
+            // 分配输出 RGB 图像的缓冲区
+            ffmpeg.av_malloc((ulong)ffmpeg.av_image_alloc(ref _dstData, ref _dstLineSize, width, height, AVPixelFormat.AV_PIX_FMT_RGBA, 1));
+            // 创建 SwsContext 对象进行颜色空间转换
+            SwsContext* swsContext = ffmpeg.sws_getContext(width, height, pixelFormat,
+                                                   width, height, AVPixelFormat.AV_PIX_FMT_RGBA,
+                                                   ffmpeg.SWS_BILINEAR, null, null, null);
+
+            // 转换颜色空间
+            ffmpeg.sws_scale(swsContext, frame->data, frame->linesize, 0, height, _dstData, _dstLineSize);
+
             using SKBitmap bitmap = new SKBitmap(width, height);
-            using SKCanvas canvas = new SKCanvas(bitmap);
-            SKImageInfo info = new SKImageInfo(width, height, SKImageInfo.PlatformColorType, SKAlphaType.Premul);
-            using SKData data = SKData.Create(new IntPtr(_dstData[0]), width * height * 3);
-            using SKImage image = SKImage.FromPixels(info, data.Data, width * 3);
-            canvas.DrawBitmap(bitmap, new SKRect(0, 0, width, height));
-            canvas.Flush();
+            SKImageInfo info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
+            bitmap.InstallPixels(info, new IntPtr(_dstData[0]));
+
             var jpegStream = new MemoryStream();
             bitmap.Encode(jpegStream, SKEncodedImageFormat.Jpeg, 100);
 

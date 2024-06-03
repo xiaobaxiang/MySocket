@@ -1,47 +1,23 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Runtime.InteropServices;
 using System.Threading;
 using FFmpeg.AutoGen;
 using FFmpegAnalyzer;
-using static OpenCvSharp.XImgProc.CvXImgProc;
-using System.Text.Json.Serialization;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Text.Encodings.Web;
 
-
 namespace TestServer
 {
-    class PicItem
-    {
-        public string Sn { get; set; }
-        public long Time { get; set; }
 
-        /// <summary>
-        /// 0-300毫秒图片
-        /// </summary>
-        public string Pic1 { get; set; }
-        /// <summary>
-        /// 300-600毫秒图片
-        /// </summary>
-        public string Pic2 { get; set; }
-        /// <summary>
-        /// 600-900毫秒图片
-        /// </summary>
-        public string Pic3 { get; set; }
-    }
-    class Program
+    public class Program
     {
         /// <summary>
         /// 获取时间戳
         /// </summary>
-        public static long TimeToken => (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalMicroseconds;
+        public static long TimeToken => (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalMilliseconds;
         public static readonly JsonSerializerOptions JsonSerializerOptions = new JsonSerializerOptions()
         {
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
@@ -51,8 +27,7 @@ namespace TestServer
             //WriteIndented = true
         };
         private static Timer timerSendPic;
-        private static ConcurrentDictionary<int, PicItem> jpegDic = new ConcurrentDictionary<int, PicItem>();
-        private static ConcurrentDictionary<int, MemoryStream> videoStreamDic = new ConcurrentDictionary<int, MemoryStream>();
+        public static ConcurrentDictionary<string, VideoInfo> VideoInfoDic = new ConcurrentDictionary<string, VideoInfo>();
         //本地
         //public const string rtmpUrl = "rtmp://192.168.1.6/live/";
         //远程
@@ -70,7 +45,6 @@ namespace TestServer
             var size = new System.Drawing.Size(640, 480);
             var videoConvert = new VideoFrameConverter(size, AVPixelFormat.AV_PIX_FMT_YUV420P, size, AVPixelFormat.AV_PIX_FMT_BGR24);
             decoderWrapper.CreateDecoder(size, false);
-            List<Byte[]> bytes = new List<byte[]>();
 
             var timeTicket = DateTime.Now.Ticks;
             AsyncMqtt.UseMqttMessageReceive();//注册mqtt连接
@@ -84,48 +58,59 @@ namespace TestServer
             {
                 //ServerSocketAsync._serverLog.Information("{3} 接收到了{2}消息{0}：{1}", b.AcceptSocket.Id, b.Messager, b.AcceptSocket.TcpClient.Client.RemoteEndPoint, Thread.CurrentThread.ManagedThreadId);
                 //b.AcceptSocket.Write(b.Messager);
-                videoStreamDic.TryGetValue(b.AcceptSocket.Id, out MemoryStream tmpVideoMem);
-                if (tmpVideoMem == null)
+                //VideoInfoDic.TryGetValue(b.AcceptSocket.Id, out VideoInfo videoInfo);
+                VideoInfoDic.TryGetValue(b.Messager.Sn, out VideoInfo videoInfo);
+                if (videoInfo == null)
                 {
-                    tmpVideoMem = new MemoryStream();
-                    videoStreamDic.TryAdd(b.AcceptSocket.Id, tmpVideoMem);
+                    videoInfo = new VideoInfo
+                    {
+                        VideoStream = new MemoryStream()
+                    };
+                    //VideoInfoDic.TryAdd(b.AcceptSocket.Id, videoInfo);
+                    VideoInfoDic.TryAdd(b.Messager.Sn, videoInfo);
                 }
-                tmpVideoMem.Write(b.Messager.PicData, 0, b.Messager.PicData.Length);
+                else if (videoInfo.VideoStream == null)
+                {
+                    videoInfo.VideoStream = new MemoryStream();
+                }
+                videoInfo.VideoStream.Write(b.Messager.PicData, 0, b.Messager.PicData.Length);
                 if (b.Messager.EOF == 1)
                 {
-                    ServerSocketAsync._serverLog.Information("开始解码:" + tmpVideoMem.Length);
+                    //TODO 先屏蔽
+                    //ServerSocketAsync._serverLog.Information("开始解码:" + videoInfo.VideoStream.Length);
                     var dirPath = AppContext.BaseDirectory + "\\tmp";
-                    var res = decoderWrapper.DecodeFrames(tmpVideoMem.ToArray());
+                    var res = decoderWrapper.DecodeFrames(videoInfo.VideoStream.ToArray());
 
                     //视频不用存了
                     //using FileStream fsw = new FileStream(dirPath +"/"+ timeTicket + ".yuv", FileMode.Append, FileAccess.Write);
                     //fsw.Write(res.item2.ToArray(), 0, tmpVideoMem.ToArray().Length);
-                    ServerSocketAsync._serverLog.Information("结束解码:" + res.Item2.Length);
+
+                    //TODO 先屏蔽
+                    //ServerSocketAsync._serverLog.Information("结束解码:" + res.Item2.Length);
 
                     //存个图，应该转Base64发MQTT
                     using var jpegStream = videoConvert.SaveJpg(res.Item1, timeTicket.ToString(), dirPath);
-                    if (!jpegDic.TryGetValue(b.AcceptSocket.Id, out PicItem picItem))
+                    if (videoInfo.PicItem == null)
                     {
-                        picItem = new PicItem { Time = TimeToken };
-                        jpegDic.TryAdd(b.AcceptSocket.Id, picItem);
+                        videoInfo.PicItem = new PicItem { Time = TimeToken };
                     }
                     if (DateTime.Now.Millisecond < 300)
                     {
                         //picItem.Pic1 = "data:image/jpeg;base64," + Convert.ToBase64String(jpegStream.ToArray());
-                        picItem.Pic1 = Convert.ToBase64String(jpegStream.ToArray());
+                        videoInfo.PicItem.Pic1 = Convert.ToBase64String(jpegStream.ToArray());
                     }
                     else if (DateTime.Now.Millisecond < 600)
                     {
                         //picItem.Pic2 = "data:image/jpeg;base64," + Convert.ToBase64String(jpegStream.ToArray());
-                        picItem.Pic2 = Convert.ToBase64String(jpegStream.ToArray());
+                        videoInfo.PicItem.Pic2 = Convert.ToBase64String(jpegStream.ToArray());
                     }
                     else if (DateTime.Now.Millisecond < 900)
                     {
                         //picItem.Pic3 = "data:image/jpeg;base64," + Convert.ToBase64String(jpegStream.ToArray());
-                        picItem.Pic3 = Convert.ToBase64String(jpegStream.ToArray());
+                        videoInfo.PicItem.Pic3 = Convert.ToBase64String(jpegStream.ToArray());
                     }
-                    picItem.Time = TimeToken;
-                    picItem.Sn = b.Messager.Sn;
+                    videoInfo.PicItem.Time = TimeToken;
+                    videoInfo.PicItem.Sn = b.Messager.Sn;
 
                     //推流
                     if (rtmpPusher.ContainsKey(b.Messager.Sn))
@@ -141,19 +126,22 @@ namespace TestServer
                     }
 
                     //tmpVideoMem.Dispose();
-                    var newtmpVideoMem = new MemoryStream();
-                    videoStreamDic.TryUpdate(b.AcceptSocket.Id, newtmpVideoMem, tmpVideoMem);
+                    videoInfo.DevFrameList.Add(new VideoFrame { Time = TimeToken, AVFrame = res.Item1 });
+
+                    videoInfo.VideoStream = new MemoryStream();
                 }
 
             };
             server.Closed += (a, b) =>
             {
-                if (b.Accepts > 0 && videoStreamDic.TryGetValue(b.AcceptSocketId, out var tmpVideoMem))
-                {
-                    tmpVideoMem.Dispose();
-                    videoStreamDic.TryRemove(b.AcceptSocketId, out _);
-                }
-                ServerSocketAsync._serverLog.Information("关闭了连接：{0}", b.AcceptSocketId);
+                //TODO 先屏蔽
+                //按sn当key先不处理
+                // if (b.Accepts > 0 && VideoInfoDic.TryGetValue(b.AcceptSocketId, out var tmpVideo))
+                // {
+                //     tmpVideo.VideoStream?.Dispose();
+                //     VideoInfoDic.TryRemove(b.AcceptSocketId, out _);
+                // }
+                // ServerSocketAsync._serverLog.Information("关闭了连接：{0}", b.AcceptSocketId);
             };
             server.Error += (a, b) =>
             {
@@ -167,13 +155,15 @@ namespace TestServer
 
         private static async Task SendPic(object state)
         {
-            foreach (var key in jpegDic.Keys)
+            foreach (var key in VideoInfoDic.Keys)
             {
-                if (jpegDic.TryGetValue(key, out var picItem))
+                if (VideoInfoDic.TryGetValue(key, out var videoInfo) && videoInfo.PicItem != null)
                 {
-                    await AsyncMqtt.SendStrMsg("sendPic", JsonSerializer.Serialize(picItem, JsonSerializerOptions));
+                    await AsyncMqtt.SendStrMsg("sendPic", JsonSerializer.Serialize(videoInfo.PicItem, JsonSerializerOptions));
                 }
-                jpegDic.TryRemove(key, out var data);
+                videoInfo.PicItem = null;
+
+                Console.WriteLine("缓存视频流信息:" + videoInfo.DevFrameList.Count);
             }
         }
         //static int count = -1;

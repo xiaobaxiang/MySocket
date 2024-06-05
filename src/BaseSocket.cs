@@ -14,7 +14,7 @@ public class BaseSocket
 
 	//public static int HeadLength = 8;
 	public static int HeadLength = 12;//起始到数据长度
-	public static int BuffLength = 1444;
+	public static int BuffLength = 1446;
 	public static readonly byte[] StartBytes = new byte[] { 0xD5, 0xF0, 0x01, 0x00 };//起始标志
 
 	public static Logger _byteLog;
@@ -207,12 +207,11 @@ public class SocketMessager
 	private byte _EOF;
 	private byte _currPacket;
 	private byte _totalPacket;
-	private string _bcd;
-	private byte[] _picData;
 	private string _sn;
+	private byte[] _picData;
 
 	//public SocketMessager(uint remoteTime, ushort seq, ushort dataLen, byte ID, byte currPacket, byte totalPacket, byte[] bcd, byte[] picData)
-	public SocketMessager(uint remoteTime, ushort seq, ushort dataLen, byte ID, byte EOF, byte currPacket, byte totalPacket,string sn, byte[] picData)
+	public SocketMessager(uint remoteTime, ushort seq, ushort dataLen, byte ID, byte EOF, byte currPacket, byte totalPacket, string sn, byte[] picData)
 	{
 		this._id = Interlocked.Increment(ref _identity);
 		this._remoteTime = remoteTime;
@@ -223,12 +222,12 @@ public class SocketMessager
 		this._EOF = EOF;
 		this._currPacket = currPacket;
 		this._totalPacket = totalPacket;
-		var bcdSb = new StringBuilder();
+		// var bcdSb = new StringBuilder();
 		// for (var i = 0; i < bcd.Length; i++)
 		// {
 		// 	bcdSb.Append(BCDToDecStr(bcd[i]));
 		// }
-		this._bcd = bcdSb.ToString();
+		// this._bcd = bcdSb.ToString();
 		this._picData = picData;
 	}
 
@@ -244,7 +243,7 @@ public class SocketMessager
 
 	public override string ToString()
 	{
-		return $"time:{this.RemoteTime.ToString("yyyy-MM-dd HH:mm:ss")}\tid:{this._id}\tseq:{this._seq}\tdataLen:{this._dataLen}\tID:{this._ID}\tEOF:{this._EOF}\tcurrPacket:{this._currPacket}\ttotalPacket:{this._totalPacket}\tbcd:{this._bcd}\tpicDateLen:{this._picData.Length}";
+		return $"time:{this.RemoteTime.ToString("yyyy-MM-dd HH:mm:ss")}\tid:{this._id}\tseq:{this._seq}\tdataLen:{this._dataLen}\tID:{this._ID}\tEOF:{this._EOF}\tcurrPacket:{this._currPacket}\ttotalPacket:{this._totalPacket}\tsn:{this._sn}\tpicDateLen:{this._picData.Length}";
 		//return $"time:{this.RemoteTime.ToString("yyyy-MM-dd HH:mm:ss")}\tid:{this._id}\tID:{this._ID}\tEOF:{this._EOF}\tcurrPacket:{this._currPacket}\ttotalPacket:{this._totalPacket}\tbcd:{this._bcd}\tpicDateLen:{this._picData.Length}";
 	}
 
@@ -265,54 +264,58 @@ public class SocketMessager
 			data[idx + 17],
 			data[idx + 18],
 			data[idx + 19],
-            BCDToString(data, idx + 20,6),
-            data.Skip(26).ToArray()
+			BCDToString(data, idx + 20, 6),
+			data.Skip(26).ToArray()
 		);
 
 		return messager;
 	}
 
 
-    static string BCDToString(byte[] bytes, int startIndex, int length)
-    {
-        StringBuilder sb = new StringBuilder();
+	static string BCDToString(byte[] bytes, int startIndex, int length)
+	{
+		StringBuilder sb = new StringBuilder();
 
-        for (int i = startIndex; i < startIndex + length; i++)
-        {
-            // 将高4位和低4位分别转换为十进制数字
-            byte highDigit = (byte)((bytes[i] >> 4) & 0x0F);
-            byte lowDigit = (byte)(bytes[i] & 0x0F);
+		// for (int i = startIndex; i < startIndex + length; i++)
+		// {
+		// 	// 将高4位和低4位分别转换为十进制数字
+		// 	byte highDigit = (byte)((bytes[i] >> 4) & 0x0F);
+		// 	byte lowDigit = (byte)(bytes[i] & 0x0F);
 
-            // 将两个数字连接成字符串
-            sb.Append(highDigit);
-            sb.Append(lowDigit);
-        }
+		// 	// 将两个数字连接成字符串
+		// 	sb.Append(highDigit);
+		// 	sb.Append(lowDigit);
+		// }
 
-        return sb.ToString();
-    }
+		for (int i = startIndex; i < startIndex + length; i++)
+		{
+			sb.Append(bytes[i].ToString("X2"));
+		}
+		return sb.ToString();
+	}
 
-    /// <summary>
-    /// 消息ID，每个一消息ID都是惟一的，同步发送时用
-    /// </summary>
-    public int Id
+	/// <summary>
+	/// 消息ID，每个一消息ID都是惟一的，同步发送时用
+	/// </summary>
+	public int Id
 	{
 		get { return _id; }
 		set { _id = value; }
 	}
 	public DateTime RemoteTime
 	{
-		get { return new DateTime((this._remoteTime + date1970Second) * 1000 * 10000); }
+		get { return new DateTime((this._remoteTime + date1970Second + (int)TimeZoneInfo.Local.BaseUtcOffset.TotalSeconds) * 1000 * 10000, DateTimeKind.Local); }
 	}
 	public object Seq
 	{
 		get { return _seq; }
 	}
 
-    public string Sn
-    {
-        get { return _sn; }
-    }
-    public ushort DataLen
+	public string Sn
+	{
+		get { return _sn; }
+	}
+	public ushort DataLen
 	{
 		get { return _dataLen; }
 	}

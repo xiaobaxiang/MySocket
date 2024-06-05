@@ -51,6 +51,7 @@ namespace FFmpegAnalyzer
             _pDecodecContext->flags |= ffmpeg.AV_CODEC_FLAG_PSNR;
             _pDecodecContext->flags2 |= ffmpeg.AV_CODEC_FLAG2_FAST;
             _pDecodecContext->max_b_frames = 0;
+            ffmpeg.av_opt_set(_pDecodecContext->priv_data, "strict", "1", 0);
             ffmpeg.av_opt_set(_pDecodecContext->priv_data, "preset", "veryfast", 0);
             ffmpeg.av_opt_set(_pDecodecContext->priv_data, "tune", "zerolatency", 0);
             //打开解码器

@@ -588,7 +588,7 @@ public class ServerSocketAsync : IDisposable
 					//头部12字节部分字节可能有缓存的情况
 					dr.TempStream.Write(dr.Buffer, 0, overs);
 					dr.Buffer = dr.TempStream.ToArray();
-					//_serverLog.Information("Head-" + overs + ":" + BitConverter.ToString(dr.Buffer));
+					_serverLog.Information("Head-" + overs + ":" + BitConverter.ToString(dr.Buffer));
 					//判断有无获取数据错乱的情况
 					if (!(dr.Buffer[0] == BaseSocket.StartBytes[0] && dr.Buffer[1] == BaseSocket.StartBytes[1] && dr.Buffer[2] == BaseSocket.StartBytes[2] && dr.Buffer[3] == BaseSocket.StartBytes[3]))
 					{
@@ -618,7 +618,7 @@ public class ServerSocketAsync : IDisposable
 					//头部12字节和可能有断包缓存的情况
 					dr.TempStream.Write(dr.Buffer, 0, overs);
 					dr.Buffer = dr.TempStream.ToArray();
-					//_serverLog.Information("Body-" + overs + ":" + BitConverter.ToString(dr.Buffer.Take(40).ToArray()) + " ...");
+					_serverLog.Information("Body-" + overs + "-" + dr.Buffer.Length + ":" + BitConverter.ToString(dr.Buffer.Take(40).ToArray()) + " ...");
 					dr.AcceptSocket.OnDataAvailable(dr);
 				}
 			}

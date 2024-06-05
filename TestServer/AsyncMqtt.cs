@@ -73,7 +73,7 @@ namespace TestServer
 
             if (connectResult.ResultCode == MqttClientConnectResultCode.Success)
             {
-                Console.WriteLine($"连接成功");
+                Console.WriteLine($"MQTT连接成功");
                 await subscribeTopic();
             }
             else
@@ -91,7 +91,11 @@ namespace TestServer
             {
                 TopicFilters = new List<MQTTnet.Packets.MqttTopicFilter> {
                             new MQTTnet.Packets.MqttTopicFilter{
-                                Topic= "saveVideo",
+                                Topic= "searchUserResult",
+                                QualityOfServiceLevel = MqttQualityOfServiceLevel.AtMostOnce,
+                            },
+                            new MQTTnet.Packets.MqttTopicFilter{
+                                Topic= "VideoClip",
                                 QualityOfServiceLevel = MqttQualityOfServiceLevel.AtMostOnce,
                             },
                         }
@@ -120,21 +124,46 @@ namespace TestServer
             var msg = Encoding.UTF8.GetString(arg.ApplicationMessage.PayloadSegment);
             Console.WriteLine($"接收到主题{arg.ApplicationMessage.Topic}的消息:\r\n" + msg);
 
-            var receive = JsonSerializer.Deserialize<PicItem>(msg, Program.JsonSerializerOptions);
-            if (receive != null)
+            if (arg.ApplicationMessage.Topic == "searchUserResult")
             {
-                if (Program.VideoInfoDic.TryGetValue(receive.Sn, out var videInfo))
+                var receive = JsonSerializer.Deserialize<PicItem>(msg, Program.JsonSerializerOptions);
+                if (receive != null)
                 {
-                    var savePath = AppContext.BaseDirectory + "\\tmp\\" + $"{receive.Sn}-{receive.Time}.mp4";
-                    var filterResult = videInfo.DevFrameList.Filter(x => x.Time >= receive.Time - 10 * 1000, x => x.Time <= receive.Time + 10 * 1000);
-                    using var H2642Mp4Streamer = new H2642Mp4Streamer();
-                    H2642Mp4Streamer.Initialize(savePath);
-                    foreach (var x in filterResult)
+                    if (Program.VideoInfoDic.TryGetValue(receive.Sn, out var videInfo) && videInfo != null)
                     {
-                        Console.WriteLine($"当前帧-{x.Time}");
-                        // using FileStream fsw = new FileStream(savePath, FileMode.Append, FileAccess.Write);
-                        // fsw.Write(x.AVFrame, 0, x.AVFrame.Length);
-                        H2642Mp4Streamer.Stream(x.AVFrame);
+                        videInfo.User = receive.User;
+                        videInfo.PicItem.User = receive.User;
+                    }
+                }
+            }
+            else if (arg.ApplicationMessage.Topic == "VideoClip")
+            {
+                var receive = JsonSerializer.Deserialize<VideoClip>(msg, Program.JsonSerializerOptions);
+                if (receive != null)
+                {
+                    if (Program.VideoInfoDic.TryGetValue(receive.Sn, out var videInfo) && videInfo != null)
+                    {
+                        var filename = $"{receive.Sn}-{receive.Time}.mp4";
+                        var savePath = AppContext.BaseDirectory + "\\tmp\\" + filename;
+                        var filterResult = videInfo.DevFrameList.Filter(x => x.Time >= receive.Time - 10 * 1000, x => x.Time <= receive.Time + 10 * 1000);
+                        using var MP4Streamer = new MP4Streamer();
+                        MP4Streamer.Initialize(savePath);
+                        var frame = 0;
+                        foreach (var x in filterResult)
+                        {
+                            Console.WriteLine($"当前帧-{frame++}-{x.Time}");
+                            // using FileStream fsw = new FileStream(savePath, FileMode.Append, FileAccess.Write);
+                            // fsw.Write(x.AVFrame, 0, x.AVFrame.Length);
+                            MP4Streamer.Stream(x.AVFrame);
+
+
+                            //存yuv视频
+                            var path = AppContext.BaseDirectory + "\\tmp\\" + $"{receive.Sn}-{receive.Time}.yuv";
+                            using FileStream fsw = new FileStream(path, FileMode.Append, FileAccess.Write);
+                            fsw.Write(x.AVBytes, 0, x.AVBytes.Length);
+                        }
+                        receive.File = "http://59.36.249.5:9101/tmp/" + filename;
+                        await SendStrMsg("VideoClipResult", JsonSerializer.Serialize(receive, Program.JsonSerializerOptions));
                     }
                 }
             }
@@ -172,8 +201,7 @@ namespace TestServer
             if (client.IsConnected)
             {
                 await client.PublishStringAsync(topic, msg, MqttQualityOfServiceLevel.AtMostOnce, false);
-                //TODO 先屏蔽
-                //Console.WriteLine($"发布成功");
+                Console.WriteLine($"发布成功");
             }
             else
             {

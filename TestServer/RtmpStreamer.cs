@@ -131,7 +131,7 @@ namespace TestServer
                 //var res = ffmpeg.av_write_frame(_outputContext, pkt);
                 if (res == 0)
                 {
-                    Console.WriteLine(framePts + "发送成功");
+                    //Console.WriteLine(framePts + "发送成功");
                 }
                 else
                 {

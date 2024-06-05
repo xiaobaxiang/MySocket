@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using FFmpeg.AutoGen;
 
@@ -8,6 +9,10 @@ namespace TestServer
     ///</summary>
     public class VideoInfo
     {
+        ///<summary>
+        /// 设备用户ID
+        ///</summary>
+        public long User { get; set; }
         ///<summary>
         /// 当前视频流
         ///</summary>
@@ -21,7 +26,7 @@ namespace TestServer
         ///<summary>
         /// 环形链表保存历史视频流用于生成关键图前后20秒视频使用
         ///</summary>
-        public CircleLinkList<VideoFrame> DevFrameList { get; set; } = new CircleLinkList<VideoFrame>(1000);
+        public CircleLinkList<VideoFrame> DevFrameList { get; set; } = new CircleLinkList<VideoFrame>(10000);
     }
     public class VideoFrame
     {
@@ -35,6 +40,7 @@ namespace TestServer
         /// 视频流AVFrame
         ///</summary>
         public AVFrame AVFrame { get; set; }
+        public byte[] AVBytes { get; set; }
 
         public override string ToString()
         {
@@ -49,6 +55,7 @@ namespace TestServer
     {
         public string Sn { get; set; }
         public long Time { get; set; }
+        public long User { get; set; }
 
         /// <summary>
         /// 0-300毫秒图片
@@ -62,5 +69,29 @@ namespace TestServer
         /// 600-900毫秒图片
         /// </summary>
         public string Pic3 { get; set; }
+    }
+
+    public class VideoClip
+    {
+        ///<summary>
+        /// 设备Sn
+        ///</summary>
+        public string Sn { get; set; }
+        ///<summary>
+        /// 时间戳
+        ///</summary>
+        public long Time { get; set; }
+        ///<summary>
+        /// 宠物id
+        ///</summary>
+        public long PetId { get; set; }
+        ///<summary>
+        /// 识别率
+        ///</summary>
+        public double Distinguish { get; set; }
+        ///<summary>
+        /// 视频信息
+        ///</summary>
+        public string File { get; set; }
     }
 }

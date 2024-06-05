@@ -14,7 +14,7 @@ public class BaseSocket
 
 	//public static int HeadLength = 8;
 	public static int HeadLength = 12;//起始到数据长度
-	public static int BuffLength = 1446;
+	public static int BuffLength = 1466;
 	public static readonly byte[] StartBytes = new byte[] { 0xD5, 0xF0, 0x01, 0x00 };//起始标志
 
 	public static Logger _byteLog;
@@ -166,6 +166,29 @@ public class BaseSocket
 		} while (idx2 != -1);
 		return idx;
 	}
+
+	public static int FindPattern(byte[] buffer, byte[] pattern)
+	{
+		int iMax = buffer.Length - pattern.Length + 1;
+		for (int i = 0; i < iMax; i++)
+		{
+			bool found = true;
+			for (int j = 0; j < pattern.Length; j++)
+			{
+				if (buffer[i + j] != pattern[j])
+				{
+					found = false;
+					break;
+				}
+			}
+			if (found)
+			{
+				return i;
+			}
+		}
+		return -1; // Not found
+	}
+
 
 	public static string formatKBit(int kbit)
 	{

@@ -348,7 +348,7 @@ public class ServerSocketAsync : IDisposable
 					NetworkStream ns = this._tcpClient.GetStream();
 					ns.ReadTimeout = 1000 * 20;
 
-					MyDataReadInfo dr = new MyDataReadInfo(DataReadInfoType.Head, this, ns, BaseSocket.HeadLength, BaseSocket.HeadLength);
+					MyDataReadInfo dr = new MyDataReadInfo(DataReadInfoType.UnKnown, this, ns, BaseSocket.BuffLength, BaseSocket.BuffLength);
 					dr.BeginRead();
 				}
 				catch (Exception ex)
@@ -442,7 +442,7 @@ public class ServerSocketAsync : IDisposable
 				this.OnReceive(e);
 			}
 			this._lastActive = DateTime.Now;
-			MyHandleDataReceived();
+			//MyHandleDataReceived();
 		}
 
 		class DataReadInfo
@@ -498,7 +498,16 @@ public class ServerSocketAsync : IDisposable
 				this.AcceptSocket._beginRead = this.NetworkStream.BeginRead(this.Buffer, 0, this.Over < this.Buffer.Length ? this.Over : this.Buffer.Length, MyHandleDataRead, this);
 			}
 		}
-		enum DataReadInfoType { Head, Body }
+
+		enum DataReadInfoType
+		{
+			///未知
+			UnKnown,
+			///读帧头
+			Head,
+			///读帧体
+			Body
+		}
 
 		static void HandleDataRead(IAsyncResult ar)
 		{
@@ -583,43 +592,132 @@ public class ServerSocketAsync : IDisposable
 						return;
 					}
 				}
-				else if (dr.Type == DataReadInfoType.Head)
+				else if (dr.Type == DataReadInfoType.UnKnown)//未知类型的需要查找起始位
 				{
-					//头部12字节部分字节可能有缓存的情况
+					//可能有缓存的情况
 					dr.TempStream.Write(dr.Buffer, 0, overs);
 					dr.Buffer = dr.TempStream.ToArray();
-					_serverLog.Information("Head-" + overs + ":" + BitConverter.ToString(dr.Buffer));
-					//判断有无获取数据错乱的情况
-					if (!(dr.Buffer[0] == BaseSocket.StartBytes[0] && dr.Buffer[1] == BaseSocket.StartBytes[1] && dr.Buffer[2] == BaseSocket.StartBytes[2] && dr.Buffer[3] == BaseSocket.StartBytes[3]))
+					//_serverLog.Information("UnKnown-" + overs + "-" + dr.Buffer.Length + ":" + BitConverter.ToString(dr.Buffer));
+					var StartBytes = new byte[] { 0xD5, 0xF0, 0x01, 0x00 };
+					//找到起始标志位位置
+
+					var startIndex = findBytes(dr.Buffer, StartBytes, 0);
+					if (startIndex > 0)
+						_serverLog.Information("找到帧头位置-" + startIndex);
+					if (startIndex > -1)
 					{
-						_serverLog.Information("起始标志错误,重新获取");
-						dr.AcceptSocket.MyHandleDataReceived();
-						return;
+						var dataLen = 0;
+						if (dr.Buffer.Length > 10 + startIndex)
+						{
+							dataLen = BitConverter.ToUInt16(dr.Buffer, 10 + startIndex);
+							overs = 16 + dataLen - dr.Buffer.Length;
+						}
+						else
+						{
+							overs = BaseSocket.BuffLength;
+						}
+						if (overs > 0)
+						{
+							//_serverLog.Information("UnKnown-继续读取" + overs + "字节");
+							//有未读完的数据
+							MyDataReadInfo drBody = new MyDataReadInfo(overs == BaseSocket.BuffLength ? DataReadInfoType.UnKnown : DataReadInfoType.Body, dr.AcceptSocket, dr.NetworkStream, overs, overs);
+							var availableBytes = dr.Buffer.Skip(startIndex).ToArray();
+							drBody.TempStream.Write(availableBytes, 0, availableBytes.Length);//缓存有效数据位
+							try
+							{
+								drBody.BeginRead();
+							}
+							catch (Exception ex)
+							{
+								dr.AcceptSocket.OnError(ex);
+								_serverLog.Error(ex, "Body BeginRead error");
+								return;
+							}
+						}
+						else if (overs < 0)//1466里面有多帧数据
+						{
+							//先取前面一包数据去处理
+							var temBuff = dr.Buffer.Skip(16 + dataLen).ToArray();
+							dr.Buffer = dr.Buffer.Take(16 + dataLen).ToArray();
+							dr.AcceptSocket.OnDataAvailable(dr);
+
+							var secStartIndex = findBytes(temBuff, StartBytes, 0);
+							if (secStartIndex > -1 && temBuff.Length > 10 + secStartIndex)
+							{
+								var dataLen2 = BitConverter.ToUInt16(temBuff, 10 + secStartIndex);
+								overs = 16 + dataLen2 - temBuff.Length;
+							}
+							else
+							{
+								overs = BaseSocket.BuffLength;
+							}
+
+							//_serverLog.Information("UnKnown-继续读取" + overs + "字节");
+							//有未读完的数据
+							MyDataReadInfo drBody = new MyDataReadInfo(overs == BaseSocket.BuffLength ? DataReadInfoType.UnKnown : DataReadInfoType.Body, dr.AcceptSocket, dr.NetworkStream, Math.Abs(overs), Math.Abs(overs));
+							drBody.TempStream.Write(temBuff, 0, temBuff.Length);//缓存有效数据位
+							try
+							{
+								drBody.BeginRead();
+							}
+							catch (Exception ex)
+							{
+								dr.AcceptSocket.OnError(ex);
+								_serverLog.Error(ex, "Body BeginRead error");
+								return;
+							}
+						}
+						else
+						{
+							//正好是一整包数据
+							dr.AcceptSocket.OnDataAvailable(dr);
+							dr.AcceptSocket.MyHandleDataReceived();
+						}
 					}
 					else
 					{
-						overs = BitConverter.ToUInt16(dr.Buffer, 10) + 4;
-						MyDataReadInfo drBody = new MyDataReadInfo(DataReadInfoType.Body, dr.AcceptSocket, dr.NetworkStream, overs, overs);
-						drBody.TempStream.Write(dr.Buffer, 0, dr.Buffer.Length);//缓存头部12字节
-						try
-						{
-							drBody.BeginRead();
-						}
-						catch (Exception ex)
-						{
-							dr.AcceptSocket.OnError(ex);
-							_serverLog.Error(ex, "Body BeginRead error");
-							return;
-						}
+						dr.AcceptSocket.MyHandleDataReceived();//获取起始位异常
+						return;
 					}
 				}
+				// else if (dr.Type == DataReadInfoType.Head)
+				// {
+				// 	//头部12字节部分字节可能有缓存的情况
+				// 	dr.TempStream.Write(dr.Buffer, 0, overs);
+				// 	dr.Buffer = dr.TempStream.ToArray();
+				// 	_serverLog.Information("Head-" + overs + ":" + BitConverter.ToString(dr.Buffer));
+				// 	//判断有无获取数据错乱的情况
+				// 	if (!(dr.Buffer[0] == BaseSocket.StartBytes[0] && dr.Buffer[1] == BaseSocket.StartBytes[1] && dr.Buffer[2] == BaseSocket.StartBytes[2] && dr.Buffer[3] == BaseSocket.StartBytes[3]))
+				// 	{
+				// 		_serverLog.Information("起始标志错误,重新获取");
+				// 		dr.AcceptSocket.MyHandleDataReceived();
+				// 		return;
+				// 	}
+				// 	else
+				// 	{
+				// 		overs = BitConverter.ToUInt16(dr.Buffer, 10) + 4;
+				// 		MyDataReadInfo drBody = new MyDataReadInfo(DataReadInfoType.Body, dr.AcceptSocket, dr.NetworkStream, overs, overs);
+				// 		drBody.TempStream.Write(dr.Buffer, 0, dr.Buffer.Length);//缓存头部12字节
+				// 		try
+				// 		{
+				// 			drBody.BeginRead();
+				// 		}
+				// 		catch (Exception ex)
+				// 		{
+				// 			dr.AcceptSocket.OnError(ex);
+				// 			_serverLog.Error(ex, "Body BeginRead error");
+				// 			return;
+				// 		}
+				// 	}
+				// }
 				else
 				{
 					//头部12字节和可能有断包缓存的情况
 					dr.TempStream.Write(dr.Buffer, 0, overs);
 					dr.Buffer = dr.TempStream.ToArray();
-					_serverLog.Information("Body-" + overs + "-" + dr.Buffer.Length + ":" + BitConverter.ToString(dr.Buffer.Take(40).ToArray()) + " ...");
+					_serverLog.Information("Body-" + overs + "-" + dr.Buffer.Length + ":" + BitConverter.ToString(dr.Buffer));
 					dr.AcceptSocket.OnDataAvailable(dr);
+					dr.AcceptSocket.MyHandleDataReceived();
 				}
 			}
 		}

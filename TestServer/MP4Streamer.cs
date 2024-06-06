@@ -203,7 +203,7 @@ namespace FFmpegAnalyzer
             //frame.pkt_dts = framePts++ * (1000 / RATE);
             // frame.pkt_dts = framePts;
             // frame.pts = framePts++ * (1000 / RATE);
-            frame.pts = framePts++ * 1000 / RATE;
+            frame.pts = framePts++ * 1000 ;
 
             if (ffmpeg.avcodec_send_frame(_videoCodecContext, &frame) < 0)
             {

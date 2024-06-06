@@ -86,6 +86,8 @@ namespace FFmpegAnalyzer
 
         public MemoryStream SaveJpg(AVFrame sourceFrame, string fileName, string fileUrl)
         {
+            try{
+
             var frame = &sourceFrame;
             // 设置图像参数（宽度、高度、像素格式等）
             int width = 640;
@@ -134,6 +136,10 @@ namespace FFmpegAnalyzer
             ffmpeg.sws_freeContext(swsContext);
 
             return jpegStream;
+            }catch(Exception ex){
+                Console.WriteLine("保存图像异常"+ex.Message);
+            }
+            return null;
         }
     }
 }

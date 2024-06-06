@@ -82,7 +82,7 @@ namespace TestServer
                 if (b.Messager.EOF == 1)
                 {
                     //TODO 先屏蔽
-                    ServerSocketAsync._serverLog.Information("开始解码:" + videoInfo.VideoStream.Length);
+                    //ServerSocketAsync._serverLog.Information("开始解码:" + videoInfo.VideoStream.Length);
                     var dirPath = AppContext.BaseDirectory + "\\tmp";
                     try
                     {
@@ -94,16 +94,20 @@ namespace TestServer
                             return;
                         }
                         var res = decoderWrapper.DecodeFrames(videoBytes);
+                        if(res==null)return;
 
                         //视频不用存了
                         //using FileStream fsw = new FileStream(dirPath +"/"+ timeTicket + ".yuv", FileMode.Append, FileAccess.Write);
                         //fsw.Write(res.item2.ToArray(), 0, tmpVideoMem.ToArray().Length);
 
                         //TODO 先屏蔽
-                        ServerSocketAsync._serverLog.Information("结束解码:" + res.Item2.Length);
+                        //ServerSocketAsync._serverLog.Information("结束解码:" + res.Item2.Length);
 
+                        Console.WriteLine("decode 5");
                         //存个图，应该转Base64发MQTT
                         using var jpegStream = videoConvert.SaveJpg(res.Item1, timeTicket.ToString(), dirPath);
+                        if(jpegStream==null) return;
+                        Console.WriteLine("decode 6");
                         if (videoInfo.PicItem == null)
                         {
                             videoInfo.PicItem = new PicItem { Time = TimeToken };
@@ -128,6 +132,7 @@ namespace TestServer
 
                         unsafe
                         {
+                            Console.WriteLine("decode 7");
                             //推流
                             if (rtmpPusher.ContainsKey(b.Messager.Sn))
                             {
@@ -154,6 +159,7 @@ namespace TestServer
                     }
                     catch (Exception ex)
                     {
+                        ServerSocketAsync._serverLog.Information(ex?.Message+"\r\n"+ex?.StackTrace);
                         ServerSocketAsync._serverLog.Error(ex, "出现异常");
                     }
                 }

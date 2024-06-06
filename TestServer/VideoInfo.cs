@@ -26,7 +26,7 @@ namespace TestServer
         ///<summary>
         /// 环形链表保存历史视频流用于生成关键图前后20秒视频使用
         ///</summary>
-        public CircleLinkList<VideoFrame> DevFrameList { get; set; } = new CircleLinkList<VideoFrame>(10000);
+        public CircleLinkList<VideoFrame> DevFrameList { get; set; } = new CircleLinkList<VideoFrame>(500);
     }
     public class VideoFrame
     {

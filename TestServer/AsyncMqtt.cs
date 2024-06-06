@@ -162,7 +162,7 @@ namespace TestServer
                             using FileStream fsw = new FileStream(path, FileMode.Append, FileAccess.Write);
                             fsw.Write(x.AVBytes, 0, x.AVBytes.Length);
                         }
-                        receive.File = "http://59.36.249.5:9101/tmp/" + filename;
+                        receive.File = "http://video.zzcyi.cn/tmp/" + filename;
                         await SendStrMsg("VideoClipResult", JsonSerializer.Serialize(receive, Program.JsonSerializerOptions));
                     }
                 }

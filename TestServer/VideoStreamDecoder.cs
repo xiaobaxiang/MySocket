@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
-using System.IO;
 using System.Runtime.InteropServices;
-using System.Windows;
 using FFmpeg.AutoGen;
+using SkiaSharp;
 
 namespace FFmpegAnalyzer
 {
@@ -52,7 +50,7 @@ namespace FFmpegAnalyzer
             ffmpeg.avcodec_open2(_pCodecContext, codec, null);
 
             CodecName = ffmpeg.avcodec_get_name(codec->id);
-            FrameSize = new System.Drawing.Size(_pCodecContext->width, _pCodecContext->height);
+            FrameSize = new SKImageInfo(_pCodecContext->width, _pCodecContext->height);
             PixelFormat = _pCodecContext->pix_fmt;
             //分配AVPacket
             /* AVPacket用于存储压缩的数据，分别包括有音频压缩数据，视频压缩数据和字幕压缩数据。
@@ -69,7 +67,7 @@ namespace FFmpegAnalyzer
         }
 
         public string CodecName { get; }
-        public System.Drawing.Size FrameSize { get; }
+        public SKImageInfo FrameSize { get; }
         public AVPixelFormat PixelFormat { get; }
 
         public void Dispose()

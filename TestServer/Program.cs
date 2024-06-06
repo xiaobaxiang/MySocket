@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 using System.Text.Encodings.Web;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Drawing.Imaging;
+using SkiaSharp;
 
 namespace TestServer
 {
@@ -46,7 +46,7 @@ namespace TestServer
             var server = new ServerSocketAsync(port); //监听0.0.0.0:19990
             FFmpegWrapper.RegisterFFmpeg();
             var decoderWrapper = new FFmpegWrapper();
-            var size = new System.Drawing.Size(640, 480);
+            var size = new SKImageInfo(640, 480);
             var videoConvert = new VideoFrameConverter(size, AVPixelFormat.AV_PIX_FMT_YUV420P, size, AVPixelFormat.AV_PIX_FMT_BGR24);
             decoderWrapper.CreateDecoder(size, false);
 

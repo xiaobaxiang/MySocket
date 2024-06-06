@@ -9,7 +9,7 @@ namespace FFmpegAnalyzer
     public sealed unsafe class VideoFrameConverter : IDisposable
     {
         private readonly IntPtr _convertedFrameBufferPtr;
-        private readonly System.Drawing.Size _destinationSize;
+        private readonly SKImageInfo _destinationSize;
         private readonly byte_ptrArray4 _dstData;
         private readonly int_array4 _dstLinesize;
         private readonly SwsContext* _pConvertContext;
@@ -20,8 +20,8 @@ namespace FFmpegAnalyzer
         /// <param name="sourcePixelFormat"></param>
         /// <param name="destinationSize"></param>
         /// <param name="destinationPixelFormat"></param>
-        public VideoFrameConverter(System.Drawing.Size sourceSize, AVPixelFormat sourcePixelFormat,
-            System.Drawing.Size destinationSize, AVPixelFormat destinationPixelFormat)
+        public VideoFrameConverter(SKImageInfo sourceSize, AVPixelFormat sourcePixelFormat,
+            SKImageInfo destinationSize, AVPixelFormat destinationPixelFormat)
         {
             _destinationSize = destinationSize;
             //分配并返回一个SwsContext。您需要它使用sws_scale()执行伸缩/转换操作
@@ -86,58 +86,61 @@ namespace FFmpegAnalyzer
 
         public MemoryStream SaveJpg(AVFrame sourceFrame, string fileName, string fileUrl)
         {
-            try{
+            try
+            {
 
-            var frame = &sourceFrame;
-            // 设置图像参数（宽度、高度、像素格式等）
-            int width = 640;
-            int height = 480;
-            // 设置 YUV 参数
-            AVPixelFormat pixelFormat = AVPixelFormat.AV_PIX_FMT_YUV420P;
-            var _dstData = new byte_ptrArray4();
-            var _dstLineSize = new int_array4();
-            // // 分配输出 RGB 图像的缓冲区
-            // ffmpeg.av_malloc((ulong)ffmpeg.av_image_alloc(ref _dstData, ref _dstLineSize, width, height, AVPixelFormat.AV_PIX_FMT_RGB24, 1));
+                var frame = &sourceFrame;
+                // 设置图像参数（宽度、高度、像素格式等）
+                int width = 640;
+                int height = 480;
+                // 设置 YUV 参数
+                AVPixelFormat pixelFormat = AVPixelFormat.AV_PIX_FMT_YUV420P;
+                var _dstData = new byte_ptrArray4();
+                var _dstLineSize = new int_array4();
+                // // 分配输出 RGB 图像的缓冲区
+                // ffmpeg.av_malloc((ulong)ffmpeg.av_image_alloc(ref _dstData, ref _dstLineSize, width, height, AVPixelFormat.AV_PIX_FMT_RGB24, 1));
 
-            // // 创建 SwsContext 对象进行颜色空间转换
-            // SwsContext* swsContext = ffmpeg.sws_getContext(width, height, pixelFormat,
-            //                                                 width, height, AVPixelFormat.AV_PIX_FMT_RGB24,
-            //                                                 ffmpeg.SWS_BILINEAR, null, null, null);
+                // // 创建 SwsContext 对象进行颜色空间转换
+                // SwsContext* swsContext = ffmpeg.sws_getContext(width, height, pixelFormat,
+                //                                                 width, height, AVPixelFormat.AV_PIX_FMT_RGB24,
+                //                                                 ffmpeg.SWS_BILINEAR, null, null, null);
 
-            // // 创建 Bitmap 对象并从 RGB 数据中加载图像
-            // System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(width, height, width * 3, System.Drawing.Imaging.PixelFormat.Format24bppRgb, new IntPtr(_dstData[0]));
+                // // 创建 Bitmap 对象并从 RGB 数据中加载图像
+                // System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(width, height, width * 3, System.Drawing.Imaging.PixelFormat.Format24bppRgb, new IntPtr(_dstData[0]));
 
-            // //stream.StartStreaming(bitmap);
+                // //stream.StartStreaming(bitmap);
 
-            // // 保存图像
-            // //bitmap.Save(fileUrl + "/" + fileName + ".jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
-            // var jpegStream = new MemoryStream();
-            // bitmap.Save(jpegStream, System.Drawing.Imaging.ImageFormat.Jpeg);
+                // // 保存图像
+                // //bitmap.Save(fileUrl + "/" + fileName + ".jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
+                // var jpegStream = new MemoryStream();
+                // bitmap.Save(jpegStream, System.Drawing.Imaging.ImageFormat.Jpeg);
 
-            // 分配输出 RGB 图像的缓冲区
-            ffmpeg.av_malloc((ulong)ffmpeg.av_image_alloc(ref _dstData, ref _dstLineSize, width, height, AVPixelFormat.AV_PIX_FMT_RGBA, 1));
-            // 创建 SwsContext 对象进行颜色空间转换
-            SwsContext* swsContext = ffmpeg.sws_getContext(width, height, pixelFormat,
-                                                   width, height, AVPixelFormat.AV_PIX_FMT_RGBA,
-                                                   ffmpeg.SWS_BILINEAR, null, null, null);
+                // 分配输出 RGB 图像的缓冲区
+                ffmpeg.av_malloc((ulong)ffmpeg.av_image_alloc(ref _dstData, ref _dstLineSize, width, height, AVPixelFormat.AV_PIX_FMT_RGBA, 1));
+                // 创建 SwsContext 对象进行颜色空间转换
+                SwsContext* swsContext = ffmpeg.sws_getContext(width, height, pixelFormat,
+                                                       width, height, AVPixelFormat.AV_PIX_FMT_RGBA,
+                                                       ffmpeg.SWS_BILINEAR, null, null, null);
 
-            // 转换颜色空间
-            ffmpeg.sws_scale(swsContext, frame->data, frame->linesize, 0, height, _dstData, _dstLineSize);
+                // 转换颜色空间
+                ffmpeg.sws_scale(swsContext, frame->data, frame->linesize, 0, height, _dstData, _dstLineSize);
 
-            using SKBitmap bitmap = new SKBitmap(width, height);
-            SKImageInfo info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
-            bitmap.InstallPixels(info, new IntPtr(_dstData[0]));
+                using SKBitmap bitmap = new SKBitmap(width, height);
+                SKImageInfo info = new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
+                bitmap.InstallPixels(info, new IntPtr(_dstData[0]));
 
-            var jpegStream = new MemoryStream();
-            bitmap.Encode(jpegStream, SKEncodedImageFormat.Jpeg, 100);
+                var jpegStream = new MemoryStream();
+                bitmap.Encode(jpegStream, SKEncodedImageFormat.Jpeg, 100);
 
-            // 释放资源
-            ffmpeg.av_free(_dstData[0]);
-            ffmpeg.sws_freeContext(swsContext);
+                // 释放资源
+                ffmpeg.av_free(_dstData[0]);
+                ffmpeg.sws_freeContext(swsContext);
 
-            return jpegStream;
-            }catch(Exception ex){
-                Console.WriteLine("保存图像异常"+ex.Message);
+                return jpegStream;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("保存图像异常" + ex.Message);
             }
             return null;
         }

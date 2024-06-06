@@ -1,7 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
-using System.Drawing;
 using FFmpeg.AutoGen;
+using SkiaSharp;
 
 namespace FFmpegAnalyzer
 {
@@ -12,7 +12,7 @@ namespace FFmpegAnalyzer
     {
         /// <param name="frameSize">编码前一帧原始数据的大小</param>
         /// <param name="isRgb">rgb数据</param>
-        public FFmpegEncoder(Size frameSize, bool isRgb = true)
+        public FFmpegEncoder(SKImageInfo frameSize, bool isRgb = true)
         {
             _frameSize = frameSize;
             _isRgb = isRgb;
@@ -22,12 +22,12 @@ namespace FFmpegAnalyzer
         /// <summary>
         /// 创建编码器
         /// </summary>
-        public  void CreateEncoder(AVCodecID codecFormat)
+        public void CreateEncoder(AVCodecID codecFormat)
         {
             var originPixelFormat = _isRgb ? AVPixelFormat.AV_PIX_FMT_RGB24 : AVPixelFormat.AV_PIX_FMT_BGRA;
             var destinationPixelFormat = AVPixelFormat.AV_PIX_FMT_YUV420P;
             _pCodec = ffmpeg.avcodec_find_encoder(codecFormat);
-             
+
             if (_pCodec == null)
                 throw new InvalidOperationException("Codec not found.");
             _pCodecContext = ffmpeg.avcodec_alloc_context3(_pCodec);
@@ -35,7 +35,7 @@ namespace FFmpegAnalyzer
             _pCodecContext->height = _frameSize.Height;
 
             _pCodecContext->framerate = new AVRational { num = 30, den = 1 };
-            _pCodecContext->time_base = new AVRational {num = 1, den = 30};
+            _pCodecContext->time_base = new AVRational { num = 1, den = 30 };
             _pCodecContext->gop_size = 30;
             _pCodecContext->pix_fmt = destinationPixelFormat;
             // 设置预测算法
@@ -65,7 +65,7 @@ namespace FFmpegAnalyzer
         /// <summary>
         /// 释放
         /// </summary>
-        public  void Dispose()
+        public void Dispose()
         {
             if (!_isCodecRunning) return;
             _isCodecRunning = false;
@@ -86,11 +86,11 @@ namespace FFmpegAnalyzer
         /// </summary>
         /// <param name="frameBytes"></param>
         /// <returns></returns>
-        public  byte[] EncodeFrames(byte[] frameBytes)
+        public byte[] EncodeFrames(byte[] frameBytes)
         {
             if (!_isCodecRunning)
             {
-                 throw new InvalidOperationException("编码器未运行!");
+                throw new InvalidOperationException("编码器未运行!");
             }
             fixed (byte* pBitmapData = frameBytes)
             {
@@ -133,7 +133,7 @@ namespace FFmpegAnalyzer
         /// <param name="width"></param>
         /// <param name="height"></param>
         /// <returns></returns>
-        private  AVFrame ConvertToYuv(AVFrame waitConvertYuvFrame, int width, int height)
+        private AVFrame ConvertToYuv(AVFrame waitConvertYuvFrame, int width, int height)
         {
             ffmpeg.sws_scale(_pConvertContext, waitConvertYuvFrame.data, waitConvertYuvFrame.linesize, 0, waitConvertYuvFrame.height, _dstData, _dstLineSize);
 
@@ -160,7 +160,7 @@ namespace FFmpegAnalyzer
         private int_array4 _dstLineSize;
         //格式转换
         private SwsContext* _pConvertContext;
-        private Size _frameSize;
+        private SKImageInfo _frameSize;
         private readonly int _rowPitch;
         private readonly bool _isRgb;
 

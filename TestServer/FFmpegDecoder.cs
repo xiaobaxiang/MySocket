@@ -1,13 +1,7 @@
 using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Net;
-using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using FFmpeg.AutoGen;
-using Serilog;
-using TestServer;
+using SkiaSharp;
 
 namespace FFmpegAnalyzer
 {
@@ -20,7 +14,7 @@ namespace FFmpegAnalyzer
 
         /// <param name="decodedFrameSize">解码后数据的大小</param>
         /// <param name="isRgb">Rgb数据</param>
-        public FFmpegDecoder(Size decodedFrameSize, bool isRgb = true)
+        public FFmpegDecoder(SKImageInfo decodedFrameSize, bool isRgb = true)
         {
             _decodedFrameSize = decodedFrameSize;
             _isRgb = isRgb;
@@ -195,7 +189,7 @@ namespace FFmpegAnalyzer
         private int_array4 _dstLineSize;
         //格式转换
         private SwsContext* _pConvertContext;
-        private Size _decodedFrameSize;
+        private SKImageInfo _decodedFrameSize;
         private readonly bool _isRgb;
         //解码器正在运行
         private bool _isCodecRunning;

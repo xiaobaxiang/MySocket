@@ -1,8 +1,7 @@
 using System;
-using System.IO;
-using System.Drawing;
 using System.Runtime.InteropServices;
 using FFmpeg.AutoGen;
+using SkiaSharp;
 
 namespace FFmpegAnalyzer
 {
@@ -56,7 +55,7 @@ namespace FFmpegAnalyzer
         /// </summary>
         /// <param name="frameSize">编码前一帧原始数据的大小</param>
         /// <param name="isRgb">rgb数据</param>
-        public void CreateEncoder(Size frameSize, bool isRgb = true)
+        public void CreateEncoder(SKImageInfo frameSize, bool isRgb = true)
         {
             _fFmpegEncoder = new FFmpegEncoder(frameSize, isRgb);
             _fFmpegEncoder.CreateEncoder(DefaultCodecFormat);
@@ -88,7 +87,7 @@ namespace FFmpegAnalyzer
         /// </summary>
         /// <param name="decodedFrameSize">解码后数据的大小</param>
         /// <param name="isRgb">Rgb数据</param>
-        public void CreateDecoder(Size decodedFrameSize, bool isRgb = true)
+        public void CreateDecoder(SKImageInfo decodedFrameSize, bool isRgb = true)
         {
             _fFmpegDecoder = new FFmpegDecoder(decodedFrameSize, isRgb);
             _fFmpegDecoder.CreateDecoder(DefaultCodecFormat);

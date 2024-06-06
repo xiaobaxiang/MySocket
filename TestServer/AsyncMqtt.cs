@@ -182,7 +182,7 @@ namespace TestServer
             if (client.IsConnected)
             {
                 await client.PublishStringAsync(topic + "/" + clientId, msg, MqttQualityOfServiceLevel.AtMostOnce, false);
-                Console.WriteLine($"发布成功");
+                Console.WriteLine("发布成功");
             }
             else
             {
@@ -200,8 +200,15 @@ namespace TestServer
         {
             if (client.IsConnected)
             {
-                await client.PublishStringAsync(topic, msg, MqttQualityOfServiceLevel.AtMostOnce, false);
-                Console.WriteLine($"发布成功");
+                try
+                {
+                    await client.PublishStringAsync(topic, msg, MqttQualityOfServiceLevel.AtMostOnce, false);
+                    Console.WriteLine("发布成功");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("发布失败" + ex.Message);
+                }
             }
             else
             {
@@ -228,7 +235,7 @@ namespace TestServer
                     QualityOfServiceLevel = MqttQualityOfServiceLevel.AtMostOnce,
                     Retain = false,
                 });
-                Console.WriteLine($"发布成功");
+                Console.WriteLine("发布成功");
             }
             else
             {

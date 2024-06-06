@@ -31,15 +31,16 @@ namespace TestServer
         };
         private static Timer timerSendPic;
         public static ConcurrentDictionary<string, VideoInfo> VideoInfoDic = new ConcurrentDictionary<string, VideoInfo>();
+        
+            //存放RTMP推送通道 key是SN, value是Streamer
+        public static  Dictionary<String, RtmpStreamer> rtmpPusher = new Dictionary<String, RtmpStreamer>();
+
         //本地
         //public const string rtmpUrl = "rtmp://192.168.1.6/live/";
         //远程
         public const string rtmpUrl = "rtmp://47.92.37.224/live/";
         static void Main(string[] args)
         {
-
-            //存放RTMP推送通道 key是SN, value是Streamer
-            Dictionary<String, RtmpStreamer> rtmpPusher = new Dictionary<String, RtmpStreamer>();
 
             var port = 9100;
             var server = new ServerSocketAsync(port); //监听0.0.0.0:19990
@@ -136,7 +137,14 @@ namespace TestServer
                             //推流
                             if (rtmpPusher.ContainsKey(b.Messager.Sn))
                             {
-                                rtmpPusher[b.Messager.Sn].Stream(res.Item1);
+                                var streamer =  rtmpPusher[b.Messager.Sn];
+                                var result = streamer.Stream(res.Item1);
+                                if(result<0){
+                                    streamer.Dispose();
+                                    streamer = new RtmpStreamer();
+                                    streamer.Initialize(rtmpUrl + b.Messager.Sn);
+                                    rtmpPusher[b.Messager.Sn]= streamer;
+                                }
                             }
                             else
                             {
@@ -190,12 +198,26 @@ namespace TestServer
         {
             foreach (var key in VideoInfoDic.Keys)
             {
-                if (VideoInfoDic.TryGetValue(key, out var videoInfo) && videoInfo.PicItem?.Pic1 != null && videoInfo.PicItem?.Pic2 != null && videoInfo.PicItem?.Pic3 != null && videoInfo.User > 0)
+                if (VideoInfoDic.TryGetValue(key, out var videoInfo))
                 {
-                    await AsyncMqtt.SendStrMsg("sendPic", JsonSerializer.Serialize(videoInfo.PicItem, JsonSerializerOptions));
-                    videoInfo.PicItem.Pic1 = null;
-                    videoInfo.PicItem.Pic2 = null;
-                    videoInfo.PicItem.Pic3 = null;
+                    if(videoInfo.PicItem?.Pic1 != null && videoInfo.PicItem?.Pic2 != null && videoInfo.PicItem?.Pic3 != null && videoInfo.User > 0){
+                        await AsyncMqtt.SendStrMsg("sendPic", JsonSerializer.Serialize(videoInfo.PicItem, JsonSerializerOptions));
+                        videoInfo.PicItem.Pic1 = null;
+                        videoInfo.PicItem.Pic2 = null;
+                        videoInfo.PicItem.Pic3 = null;
+                    }
+
+                    if(videoInfo.DevFrameList?.Current?.Value.Time<TimeToken-1000){
+                        //rtmpPusher[key].Stream(videoInfo.DevFrameList.Current.Value.AVFrame);
+                        var streamer =  rtmpPusher[key];
+                        var result = streamer.Stream(videoInfo.DevFrameList.Current.Value.AVFrame);
+                        if(result<0){
+                            streamer.Dispose();
+                            streamer = new RtmpStreamer();
+                            streamer.Initialize(rtmpUrl + key);
+                            rtmpPusher[key]=streamer;
+                        }
+                    }
                 }
 
                 Console.WriteLine("缓存视频流信息:" + key + "-" + videoInfo.DevFrameList.Count);

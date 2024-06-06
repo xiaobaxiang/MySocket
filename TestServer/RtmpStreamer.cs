@@ -30,7 +30,7 @@ namespace TestServer
             三天三夜，取百家之所长，得到的一段代码             
                 佛祖保佑       永无BUG
     */
-    public unsafe class RtmpStreamer
+    public unsafe class RtmpStreamer : IDisposable
     {
         private AVFormatContext* _outputContext = null;
         private AVCodecContext* _videoCodecContext = null;
@@ -105,7 +105,7 @@ namespace TestServer
             _outputContext = pOutputFormatContext;
         }
 
-        public void Stream(AVFrame frame)
+        public int Stream(AVFrame frame)
         {
             AVPacket* pkt = ffmpeg.av_packet_alloc();
             //解码时间戳 这个让自增吧 只要小于PTS就可以
@@ -118,6 +118,7 @@ namespace TestServer
             if (error < 0)
                 throw new ApplicationException("Error sending a frame for encoding.");
 
+            var res = 0;
             //编码后
             while (ffmpeg.avcodec_receive_packet(_videoCodecContext, pkt) == 0)
             {
@@ -125,7 +126,7 @@ namespace TestServer
                 pkt->time_base = new AVRational { num = 1, den = RATE };
 
                 //av_interleaved_write_frame 是更严格一些的写入操作
-                var res = ffmpeg.av_interleaved_write_frame(_outputContext, pkt);
+                res = ffmpeg.av_interleaved_write_frame(_outputContext, pkt);
 
                 //av_write_frame 直接框框写
                 //var res = ffmpeg.av_write_frame(_outputContext, pkt);
@@ -141,6 +142,7 @@ namespace TestServer
             }
             ffmpeg.av_packet_unref(pkt);
             ffmpeg.av_packet_free(&pkt);
+            return res;
         }
 
         public void Finish()
@@ -152,5 +154,22 @@ namespace TestServer
                 ffmpeg.avcodec_free_context(ptrDecodecContext);
             }
         }
+
+        
+        public void Dispose()
+        {
+            Console.WriteLine("释放资源");
+            ffmpeg.av_write_trailer(_outputContext);
+            fixed (AVFormatContext** ptrOutputContext = &_outputContext)
+            {
+                ffmpeg.avformat_close_input(ptrOutputContext);
+            }
+            //ffmpeg.avcodec_close(_videoCodecContext);
+            fixed (AVCodecContext** ptrDecodecContext = &_videoCodecContext)
+            {
+                ffmpeg.avcodec_free_context(ptrDecodecContext);
+            }
+        }
+
     }
 }

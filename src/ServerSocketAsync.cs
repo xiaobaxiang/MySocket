@@ -603,7 +603,7 @@ public class ServerSocketAsync : IDisposable
 
 					var startIndex = findBytes(dr.Buffer, StartBytes, 0);
 					if (startIndex > 0)
-						_serverLog.Information("找到帧头位置-" + startIndex);
+						_serverLog.Information("start frame position -" + startIndex);
 					if (startIndex > -1)
 					{
 						var dataLen = 0;

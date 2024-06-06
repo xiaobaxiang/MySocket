@@ -29,7 +29,7 @@ namespace TestServer
 
             // 创建 MQTT 客户端选项
             var options = new MqttClientOptionsBuilder()
-                .WithTcpServer("47.90.134.89", 7083) // MQTT broker 地址 端口 emqx.zzcyi.cn 47.90.134.89:7083
+                .WithTcpServer("172.26.255.91", 7083) // MQTT broker 地址 端口 emqx.zzcyi.cn 47.90.134.89:7083
                 .WithClientId("ffmpeg_client")
                 .WithCredentials("admin", "eLzuAJ@ghcZJkAD4m") // 设置账号密码 1ad6c09e eLzuAJ@ghcZJkAD4m
                 .Build();
@@ -37,7 +37,7 @@ namespace TestServer
             var i = 0;
             client.DisconnectedAsync += async (arg) =>
             {
-                Console.WriteLine("断开连接:{Reason}", arg.Reason);
+                Console.WriteLine("disconnect:{Reason}", arg.Reason);
                 if (i > 0)
                 {
                     await Task.Delay(3000);
@@ -47,13 +47,13 @@ namespace TestServer
                 {
                     Console.WriteLine($"mqtt断开连接后重连{i}次");
                     await client.ReconnectAsync();
-                    Console.WriteLine($"重连成功");
+                    Console.WriteLine($"reconnect");
                     //await subscribeTopic();
                     i = 0;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("重连出现异常," + ex.Message);
+                    Console.WriteLine("reconnect error," + ex.Message);
                 }
                 //while (!client.IsConnected)
                 //{
@@ -73,12 +73,12 @@ namespace TestServer
 
             if (connectResult.ResultCode == MqttClientConnectResultCode.Success)
             {
-                Console.WriteLine($"MQTT连接成功");
+                Console.WriteLine($"MQTT connected");
                 await subscribeTopic();
             }
             else
             {
-                Console.WriteLine($"连接 MQTT broker 失败: {connectResult.ResultCode}");
+                Console.WriteLine($"connect MQTT broker failed: {connectResult.ResultCode}");
             }
         }
 
@@ -100,7 +100,7 @@ namespace TestServer
                             },
                         }
             });
-            Console.WriteLine("接收录制视频消息-订阅成功");
+            Console.WriteLine("video clip - subscribe success");
         }
 
         /// <summary>
@@ -122,7 +122,7 @@ namespace TestServer
             var arg = _arg as MqttApplicationMessageReceivedEventArgs;
             if (arg == null) return;
             var msg = Encoding.UTF8.GetString(arg.ApplicationMessage.PayloadSegment);
-            Console.WriteLine($"接收到主题{arg.ApplicationMessage.Topic}的消息:\r\n" + msg);
+            Console.WriteLine($"received topic:{arg.ApplicationMessage.Topic} msg:\r\n" + msg);
 
             if (arg.ApplicationMessage.Topic == "searchUserResult")
             {
@@ -145,13 +145,14 @@ namespace TestServer
                     {
                         var filename = $"{receive.Sn}-{receive.Time}.mp4";
                         var savePath = AppContext.BaseDirectory + "\\tmp\\" + filename;
-                        var filterResult = videInfo.DevFrameList.Filter(x => x.Time >= receive.Time - 10 * 1000, x => x.Time <= receive.Time + 10 * 1000);
+                        //var filterResult = videInfo.DevFrameList.Filter(x => x.Time >= receive.Time - 10 * 1000, x => x.Time <= receive.Time + 10 * 1000);
+                        var filterResult = videInfo.DevFrameList.Filter(x => x.Time >= receive.Time - 30 * 1000, x => x.Time <= receive.Time + 10 * 1000);
                         using var MP4Streamer = new MP4Streamer();
                         MP4Streamer.Initialize(savePath);
                         var frame = 0;
                         foreach (var x in filterResult)
                         {
-                            Console.WriteLine($"当前帧-{frame++}-{x.Time}");
+                            Console.WriteLine($"current frame -{frame++}-{x.Time}");
                             // using FileStream fsw = new FileStream(savePath, FileMode.Append, FileAccess.Write);
                             // fsw.Write(x.AVFrame, 0, x.AVFrame.Length);
                             MP4Streamer.Stream(x.AVFrame);
@@ -162,7 +163,7 @@ namespace TestServer
                             using FileStream fsw = new FileStream(path, FileMode.Append, FileAccess.Write);
                             fsw.Write(x.AVBytes, 0, x.AVBytes.Length);
                         }
-                        receive.File = "http://video.zzcyi.cn/tmp/" + filename;
+                        receive.File = "http://47.90.177.174/tmp/" + filename;
                         await SendStrMsg("VideoClipResult", JsonSerializer.Serialize(receive, Program.JsonSerializerOptions));
                     }
                 }
@@ -182,11 +183,11 @@ namespace TestServer
             if (client.IsConnected)
             {
                 await client.PublishStringAsync(topic + "/" + clientId, msg, MqttQualityOfServiceLevel.AtMostOnce, false);
-                Console.WriteLine("发布成功");
+                Console.WriteLine("publish success");
             }
             else
             {
-                Console.WriteLine("客户端未连接");
+                Console.WriteLine("client not connected");
             }
         }
 
@@ -203,16 +204,16 @@ namespace TestServer
                 try
                 {
                     await client.PublishStringAsync(topic, msg, MqttQualityOfServiceLevel.AtMostOnce, false);
-                    Console.WriteLine("发布成功");
+                    Console.WriteLine("publish success");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("发布失败" + ex.Message);
+                    Console.WriteLine("publish error:" + ex.Message);
                 }
             }
             else
             {
-                Console.WriteLine("客户端未连接");
+                Console.WriteLine("client not connected");
             }
         }
 
@@ -235,11 +236,11 @@ namespace TestServer
                     QualityOfServiceLevel = MqttQualityOfServiceLevel.AtMostOnce,
                     Retain = false,
                 });
-                Console.WriteLine("发布成功");
+                Console.WriteLine("publish success");
             }
             else
             {
-                Console.WriteLine("客户端未连接");
+                Console.WriteLine("client not connected");
             }
         }
 

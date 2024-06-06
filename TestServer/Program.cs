@@ -38,7 +38,8 @@ namespace TestServer
         //本地
         //public const string rtmpUrl = "rtmp://192.168.1.6/live/";
         //远程
-        public const string rtmpUrl = "rtmp://47.92.37.224/live/";
+        //public const string rtmpUrl = "rtmp://47.92.37.224/live/";
+        public const string rtmpUrl = "rtmp://127.0.0.1/live/";
         static void Main(string[] args)
         {
 
@@ -56,7 +57,7 @@ namespace TestServer
 
             server.Accepted += (a, b) =>
             {
-                ServerSocketAsync._serverLog.Information("新连接：" + b.Accepts + "-" + b.AcceptSocket.TcpClient.Client.RemoteEndPoint);
+                ServerSocketAsync._serverLog.Information("new connect" + b.Accepts + "-" + b.AcceptSocket.TcpClient.Client.RemoteEndPoint);
             };
             server.Receive += async (a, b) =>
             {
@@ -90,7 +91,7 @@ namespace TestServer
                         var videoBytes = videoInfo.VideoStream.ToArray();//00 00 00 01
                         if (!(videoBytes[0] == 0x00 && videoBytes[1] == 0x00 && videoBytes[2] == 0x00 && videoBytes[3] == 0x01))
                         {
-                            ServerSocketAsync._serverLog.Information("视频流不完整,帧内容-" + ":" + BitConverter.ToString(videoBytes.Take(40).ToArray()) + " ...");
+                            ServerSocketAsync._serverLog.Information("avframe uncomplete,frame content-" + ":" + BitConverter.ToString(videoBytes.Take(40).ToArray()) + " ...");
                             videoInfo.VideoStream = new MemoryStream();
                             return;
                         }
@@ -164,12 +165,12 @@ namespace TestServer
                     }
                     catch (SEHException ex)
                     {
-                        ServerSocketAsync._serverLog.Error(ex, "解码异常");
+                        ServerSocketAsync._serverLog.Error(ex, "decode error");
                     }
                     catch (Exception ex)
                     {
                         ServerSocketAsync._serverLog.Information(ex?.Message + "\r\n" + ex?.StackTrace);
-                        ServerSocketAsync._serverLog.Error(ex, "出现异常");
+                        ServerSocketAsync._serverLog.Error(ex, "error occurred");
                     }
                 }
 
@@ -187,10 +188,10 @@ namespace TestServer
             };
             server.Error += (a, b) =>
             {
-                ServerSocketAsync._serverLog.Information("发生错误({0})：{1} {2}", b.Errors, b.Exception.Message, b.Exception.StackTrace);
+                ServerSocketAsync._serverLog.Information("error occurred ({0})：{1} {2}", b.Errors, b.Exception.Message, b.Exception.StackTrace);
             };
             server.Start();
-            ServerSocketAsync._serverLog.Information($"监听{port}");
+            ServerSocketAsync._serverLog.Information($"listen {port}");
             Console.Read();
         }
 
@@ -203,28 +204,29 @@ namespace TestServer
                 {
                     if (videoInfo.PicItem?.Pic1 != null && videoInfo.PicItem?.Pic2 != null && videoInfo.PicItem?.Pic3 != null && videoInfo.User > 0)
                     {
+                        videoInfo.PicItem.User = videoInfo.User;
                         await AsyncMqtt.SendStrMsg("sendPic", JsonSerializer.Serialize(videoInfo.PicItem, JsonSerializerOptions));
                         videoInfo.PicItem.Pic1 = null;
                         videoInfo.PicItem.Pic2 = null;
                         videoInfo.PicItem.Pic3 = null;
                     }
 
-                    if (videoInfo.DevFrameList?.Current?.Value.Time < TimeToken - 1000)
-                    {
-                        //rtmpPusher[key].Stream(videoInfo.DevFrameList.Current.Value.AVFrame);
-                        var streamer = rtmpPusher[key];
-                        var result = streamer.Stream(videoInfo.DevFrameList.Current.Value.AVFrame);
-                        if (result < 0)
-                        {
-                            streamer.Dispose();
-                            streamer = new RtmpStreamer();
-                            streamer.Initialize(rtmpUrl + key);
-                            rtmpPusher[key] = streamer;
-                        }
-                    }
+                    // if (videoInfo.DevFrameList?.Current?.Value.Time < TimeToken - 1000)
+                    // {
+                    //     //rtmpPusher[key].Stream(videoInfo.DevFrameList.Current.Value.AVFrame);
+                    //     var streamer = rtmpPusher[key];
+                    //     var result = streamer.Stream(videoInfo.DevFrameList.Current.Value.AVFrame);
+                    //     if (result < 0)
+                    //     {
+                    //         streamer.Dispose();
+                    //         streamer = new RtmpStreamer();
+                    //         streamer.Initialize(rtmpUrl + key);
+                    //         rtmpPusher[key] = streamer;
+                    //     }
+                    // }
                 }
 
-                Console.WriteLine("缓存视频流信息:" + key + "-" + videoInfo.DevFrameList.Count);
+                Console.WriteLine("cach video info:" + key + "-" + videoInfo.DevFrameList.Count);
             }
         }
         //static int count = -1;

@@ -116,7 +116,8 @@ namespace TestServer
             //把AVFrame发送到编码器
             int error = ffmpeg.avcodec_send_frame(_videoCodecContext, &frame);
             if (error < 0)
-                throw new ApplicationException("Error sending a frame for encoding.");
+                return -1;
+            //throw new ApplicationException("Error sending a frame for encoding.");
 
             var res = 0;
             //编码后
@@ -155,7 +156,7 @@ namespace TestServer
             }
         }
 
-        
+
         public void Dispose()
         {
             Console.WriteLine("释放资源");

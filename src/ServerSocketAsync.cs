@@ -610,7 +610,7 @@ public class ServerSocketAsync : IDisposable
 						if (dr.Buffer.Length > 10 + startIndex)
 						{
 							dataLen = BitConverter.ToUInt16(dr.Buffer, 10 + startIndex);
-							overs = 16 + dataLen - dr.Buffer.Length;
+							overs = startIndex + 16 + dataLen - dr.Buffer.Length;
 						}
 						else
 						{

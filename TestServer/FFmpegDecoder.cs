@@ -115,10 +115,10 @@ namespace FFmpegAnalyzer
                         ffmpeg.avcodec_send_packet(_pDecodecContext, waitDecodePacket);
                         Console.WriteLine("decode 2");
                         error = ffmpeg.avcodec_receive_frame(_pDecodecContext, waitDecoderFrame);
-                        
+
                         Console.WriteLine("decode 3");
 
-                        if(error<0) return null;
+                        if (error < 0) return null;
                         //RtmpPusher.publishFile();
                         //_pusher.PushFrame(waitDecoderFrame);
                     } while (error == ffmpeg.AVERROR(ffmpeg.EAGAIN));

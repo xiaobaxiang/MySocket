@@ -31,9 +31,9 @@ namespace TestServer
         };
         private static Timer timerSendPic;
         public static ConcurrentDictionary<string, VideoInfo> VideoInfoDic = new ConcurrentDictionary<string, VideoInfo>();
-        
-            //存放RTMP推送通道 key是SN, value是Streamer
-        public static  Dictionary<String, RtmpStreamer> rtmpPusher = new Dictionary<String, RtmpStreamer>();
+
+        //存放RTMP推送通道 key是SN, value是Streamer
+        public static Dictionary<String, RtmpStreamer> rtmpPusher = new Dictionary<String, RtmpStreamer>();
 
         //本地
         //public const string rtmpUrl = "rtmp://192.168.1.6/live/";
@@ -95,7 +95,7 @@ namespace TestServer
                             return;
                         }
                         var res = decoderWrapper.DecodeFrames(videoBytes);
-                        if(res==null)return;
+                        if (res == null) return;
 
                         //视频不用存了
                         //using FileStream fsw = new FileStream(dirPath +"/"+ timeTicket + ".yuv", FileMode.Append, FileAccess.Write);
@@ -107,7 +107,7 @@ namespace TestServer
                         Console.WriteLine("decode 5");
                         //存个图，应该转Base64发MQTT
                         using var jpegStream = videoConvert.SaveJpg(res.Item1, timeTicket.ToString(), dirPath);
-                        if(jpegStream==null) return;
+                        if (jpegStream == null) return;
                         Console.WriteLine("decode 6");
                         if (videoInfo.PicItem == null)
                         {
@@ -137,13 +137,14 @@ namespace TestServer
                             //推流
                             if (rtmpPusher.ContainsKey(b.Messager.Sn))
                             {
-                                var streamer =  rtmpPusher[b.Messager.Sn];
+                                var streamer = rtmpPusher[b.Messager.Sn];
                                 var result = streamer.Stream(res.Item1);
-                                if(result<0){
+                                if (result < 0)
+                                {
                                     streamer.Dispose();
                                     streamer = new RtmpStreamer();
                                     streamer.Initialize(rtmpUrl + b.Messager.Sn);
-                                    rtmpPusher[b.Messager.Sn]= streamer;
+                                    rtmpPusher[b.Messager.Sn] = streamer;
                                 }
                             }
                             else
@@ -167,7 +168,7 @@ namespace TestServer
                     }
                     catch (Exception ex)
                     {
-                        ServerSocketAsync._serverLog.Information(ex?.Message+"\r\n"+ex?.StackTrace);
+                        ServerSocketAsync._serverLog.Information(ex?.Message + "\r\n" + ex?.StackTrace);
                         ServerSocketAsync._serverLog.Error(ex, "出现异常");
                     }
                 }
@@ -200,22 +201,25 @@ namespace TestServer
             {
                 if (VideoInfoDic.TryGetValue(key, out var videoInfo))
                 {
-                    if(videoInfo.PicItem?.Pic1 != null && videoInfo.PicItem?.Pic2 != null && videoInfo.PicItem?.Pic3 != null && videoInfo.User > 0){
+                    if (videoInfo.PicItem?.Pic1 != null && videoInfo.PicItem?.Pic2 != null && videoInfo.PicItem?.Pic3 != null && videoInfo.User > 0)
+                    {
                         await AsyncMqtt.SendStrMsg("sendPic", JsonSerializer.Serialize(videoInfo.PicItem, JsonSerializerOptions));
                         videoInfo.PicItem.Pic1 = null;
                         videoInfo.PicItem.Pic2 = null;
                         videoInfo.PicItem.Pic3 = null;
                     }
 
-                    if(videoInfo.DevFrameList?.Current?.Value.Time<TimeToken-1000){
+                    if (videoInfo.DevFrameList?.Current?.Value.Time < TimeToken - 1000)
+                    {
                         //rtmpPusher[key].Stream(videoInfo.DevFrameList.Current.Value.AVFrame);
-                        var streamer =  rtmpPusher[key];
+                        var streamer = rtmpPusher[key];
                         var result = streamer.Stream(videoInfo.DevFrameList.Current.Value.AVFrame);
-                        if(result<0){
+                        if (result < 0)
+                        {
                             streamer.Dispose();
                             streamer = new RtmpStreamer();
                             streamer.Initialize(rtmpUrl + key);
-                            rtmpPusher[key]=streamer;
+                            rtmpPusher[key] = streamer;
                         }
                     }
                 }

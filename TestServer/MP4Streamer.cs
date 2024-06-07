@@ -33,9 +33,10 @@ namespace FFmpegAnalyzer
         private AVFormatContext* _outputContext = null;
         private AVCodecContext* _videoCodecContext = null;
         private long framePts = 0;
-        private const int RATE = 10;
-        public MP4Streamer()
+        private int RATE = 10;
+        public MP4Streamer(int RATE)
         {
+            this.RATE = RATE;
             ffmpeg.avdevice_register_all();
         }
 
@@ -201,9 +202,9 @@ namespace FFmpegAnalyzer
             // }
 
             //frame.pkt_dts = framePts++ * (1000 / RATE);
-            // frame.pkt_dts = framePts;
-            // frame.pts = framePts++ * (1000 / RATE);
-            frame.pts = framePts++ * 1000;
+            frame.pkt_dts = framePts;
+            //frame.pts = framePts++ * (1000 / RATE);
+            frame.pts = framePts++ * 10000;
 
             if (ffmpeg.avcodec_send_frame(_videoCodecContext, &frame) < 0)
             {

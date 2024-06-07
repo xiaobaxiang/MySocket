@@ -10,6 +10,8 @@ using System.Text.Json.Serialization;
 using System.Text.Json;
 using System.IO;
 using FFmpegAnalyzer;
+using FFmpeg.AutoGen;
+using System.Linq;
 
 namespace TestServer
 {
@@ -138,6 +140,7 @@ namespace TestServer
             }
             else if (arg.ApplicationMessage.Topic == "VideoClip")
             {
+                await Task.Delay(10000);
                 var receive = JsonSerializer.Deserialize<VideoClip>(msg, Program.JsonSerializerOptions);
                 if (receive != null)
                 {
@@ -145,11 +148,13 @@ namespace TestServer
                     {
                         var filename = $"{receive.Sn}-{receive.Time}.mp4";
                         var savePath = AppContext.BaseDirectory + "\\tmp\\" + filename;
+
                         //var filterResult = videInfo.DevFrameList.Filter(x => x.Time >= receive.Time - 10 * 1000, x => x.Time <= receive.Time + 10 * 1000);
-                        var filterResult = videInfo.DevFrameList.Filter(x => x.Time >= receive.Time - 30 * 1000, x => x.Time <= receive.Time + 10 * 1000);
-                        using var MP4Streamer = new MP4Streamer();
-                        MP4Streamer.Initialize(savePath);
+                        var filterResult = videInfo.DevFrameList.Filter(x => x.Time >= receive.Time - 30 * 1000, x => x.Time <= receive.Time + 10 * 1000).ToList();
                         var frame = 0;
+
+                        using var MP4Streamer = new MP4Streamer((int)(filterResult.Count / 10));
+                        MP4Streamer.Initialize(savePath);
                         foreach (var x in filterResult)
                         {
                             Console.WriteLine($"current frame -{frame++}-{x.Time}");

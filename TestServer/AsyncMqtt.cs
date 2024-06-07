@@ -140,7 +140,7 @@ namespace TestServer
             }
             else if (arg.ApplicationMessage.Topic == "VideoClip")
             {
-                await Task.Delay(10000);
+                //await Task.Delay(10000);
                 var receive = JsonSerializer.Deserialize<VideoClip>(msg, Program.JsonSerializerOptions);
                 if (receive != null)
                 {

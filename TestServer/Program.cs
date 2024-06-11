@@ -180,8 +180,8 @@ namespace TestServer
                         // }
 
                         //tmpVideoMem.Dispose();
-                        //videoInfo.DevFrameList.Add(new VideoFrame { Time = time, AVFrame = res.Item1, AVBytes = res.Item2 });
-                        videoInfo.DevFrameList.Add(new VideoFrame { Time = TimeToken, AVFrame = DeepCopyFrame(res.Item1), AVBytes = res.Item2 });
+                        //videoInfo.DevFrameList.Add(new VideoFrame { Time = TimeToken, AVFrame = DeepCopyFrame(res.Item1), AVBytes = res.Item2 });
+                        videoInfo.DevFrameList.Add(new VideoFrame { Time = TimeToken, AVFrame = DeepCopyFrame(res.Item1) });
                         videoInfo.VideoStream = new MemoryStream();
                     }
                     catch (SEHException ex)

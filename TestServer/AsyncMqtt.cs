@@ -153,7 +153,8 @@ namespace TestServer
                         var filterResult = videInfo.DevFrameList.Filter(x => x.Time >= receive.Time - 10 * 1000, x => x.Time <= receive.Time + 10 * 1000).ToList();
                         var frame = 0;
 
-                        var MP4Streamer = new MP4Streamer((int)(filterResult.Count / 10));
+                        //var MP4Streamer = new MP4Streamer((int)(filterResult.Count / 10));
+                        var MP4Streamer = new MP4Streamer(10);
                         MP4Streamer.Initialize(savePath);
                         foreach (var x in filterResult)
                         {
@@ -163,10 +164,10 @@ namespace TestServer
                             MP4Streamer.Stream(x.AVFrame);
 
 
-                            //存yuv视频
-                            var path = AppContext.BaseDirectory + "\\tmp\\" + $"{receive.Sn}-{receive.Time}.yuv";
-                            using FileStream fsw = new FileStream(path, FileMode.Append, FileAccess.Write);
-                            fsw.Write(x.AVBytes, 0, x.AVBytes.Length);
+                            // //存yuv视频
+                            // var path = AppContext.BaseDirectory + "\\tmp\\" + $"{receive.Sn}-{receive.Time}.yuv";
+                            // using FileStream fsw = new FileStream(path, FileMode.Append, FileAccess.Write);
+                            // fsw.Write(x.AVBytes, 0, x.AVBytes.Length);
                         }
                         MP4Streamer.Dispose();
                         receive.File = "http://video.acesmarttech.com/tmp/" + filename;

@@ -39,7 +39,7 @@ namespace TestServer
         /// 视频流AVFrame
         ///</summary>
         public AVFrame AVFrame { get; set; }
-        public byte[] AVBytes { get; set; }
+        //public byte[] AVBytes { get; set; }
 
         public override string ToString()
         {

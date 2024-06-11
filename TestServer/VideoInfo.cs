@@ -35,7 +35,6 @@ namespace TestServer
         ///</summary>
         public long Time { get; set; }
 
-
         ///<summary>
         /// 视频流AVFrame
         ///</summary>
@@ -44,7 +43,7 @@ namespace TestServer
 
         public override string ToString()
         {
-            return $"当前帧 {Time} {AVFrame.buf.Length}";
+            return $"Current frame {Time} {AVFrame.buf.Length}";
         }
     }
 

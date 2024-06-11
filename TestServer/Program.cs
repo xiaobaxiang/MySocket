@@ -42,7 +42,6 @@ namespace TestServer
         public const string rtmpUrl = "rtmp://127.0.0.1/live/";
         static void Main(string[] args)
         {
-
             var port = 9100;
             var server = new ServerSocketAsync(port); //监听0.0.0.0:19990
             FFmpegWrapper.RegisterFFmpeg();
@@ -55,13 +54,20 @@ namespace TestServer
             AsyncMqtt.UseMqttMessageReceive();//注册mqtt连接
             timerSendPic = new Timer(async (object state) => await SendPic(null), null, 900, 1000);//1秒执行一次
 
+            //var count = 1;
+            // var filename = $"{TimeToken}.mp4";
+            // var savePath = AppContext.BaseDirectory + "\\tmp\\" + filename;
+
+            // using var MP4Streamer = new MP4Streamer(5);
+            // MP4Streamer.Initialize(savePath);
+            // var listAvFrame = new List<AVFrame>();
             server.Accepted += (a, b) =>
             {
                 ServerSocketAsync._serverLog.Information("new connect" + b.Accepts + "-" + b.AcceptSocket.TcpClient.Client.RemoteEndPoint);
             };
             server.Receive += async (a, b) =>
             {
-                //ServerSocketAsync._serverLog.Information("{3} 接收到了{2}消息{0}：{1}", b.AcceptSocket.Id, b.Messager, b.AcceptSocket.TcpClient.Client.RemoteEndPoint, Thread.CurrentThread.ManagedThreadId);
+                //ServerSocketAsync._serverLog.Information("{3} receive {2} data packet {0}：{1}", b.AcceptSocket.Id, b.Messager, b.AcceptSocket.TcpClient.Client.RemoteEndPoint, Thread.CurrentThread.ManagedThreadId);
                 //b.AcceptSocket.Write(b.Messager);
                 //VideoInfoDic.TryGetValue(b.AcceptSocket.Id, out VideoInfo videoInfo);
                 VideoInfoDic.TryGetValue(b.Messager.Sn, out VideoInfo videoInfo);
@@ -105,11 +111,11 @@ namespace TestServer
                         //TODO 先屏蔽
                         //ServerSocketAsync._serverLog.Information("结束解码:" + res.Item2.Length);
 
-                        Console.WriteLine("decode 5");
+                        //Console.WriteLine("decode 5");
                         //存个图，应该转Base64发MQTT
                         using var jpegStream = videoConvert.SaveJpg(res.Item1, timeTicket.ToString(), dirPath);
                         if (jpegStream == null) return;
-                        Console.WriteLine("decode 6");
+                        //Console.WriteLine("decode 6");
                         if (videoInfo.PicItem == null)
                         {
                             videoInfo.PicItem = new PicItem { Time = TimeToken };
@@ -131,10 +137,10 @@ namespace TestServer
                         }
                         videoInfo.PicItem.Time = TimeToken;
                         videoInfo.PicItem.Sn = b.Messager.Sn;
-
+                        //count++;
                         unsafe
                         {
-                            Console.WriteLine("decode 7");
+                            //Console.WriteLine("decode 7");
                             //推流
                             if (rtmpPusher.ContainsKey(b.Messager.Sn))
                             {
@@ -157,10 +163,25 @@ namespace TestServer
                             }
                         }
 
+                        // if (count < 50)
+                        // {
+                        //     listAvFrame.Add(DeepCopyFrame(res.Item1));
+
+                        //     //listAvFrame.Add(DeepCopyFrame(res.Item1));
+                        //     //MP4Streamer.Stream(res.Item1);
+                        // }
+                        // else if (count == 50)
+                        // {
+                        //     listAvFrame.ForEach(e =>
+                        //     {
+                        //         MP4Streamer.Stream(e);
+                        //     });
+                        //     MP4Streamer.Dispose();
+                        // }
 
                         //tmpVideoMem.Dispose();
-                        videoInfo.DevFrameList.Add(new VideoFrame { Time = TimeToken, AVFrame = res.Item1, AVBytes = res.Item2 });
-
+                        //videoInfo.DevFrameList.Add(new VideoFrame { Time = time, AVFrame = res.Item1, AVBytes = res.Item2 });
+                        videoInfo.DevFrameList.Add(new VideoFrame { Time = TimeToken, AVFrame = DeepCopyFrame(res.Item1), AVBytes = res.Item2 });
                         videoInfo.VideoStream = new MemoryStream();
                     }
                     catch (SEHException ex)
@@ -174,6 +195,10 @@ namespace TestServer
                     }
                 }
 
+                // if (b.Messager.EOF == 1)
+                // {
+                //     ServerSocketAsync._serverLog.Information("data frame," + (count++));
+                // }
             };
             server.Closed += (a, b) =>
             {
@@ -193,6 +218,41 @@ namespace TestServer
             server.Start();
             ServerSocketAsync._serverLog.Information($"listen {port}");
             Console.Read();
+        }
+
+        // 用于创建深拷贝的函数
+        static unsafe byte*[] DeepCopy(byte*[] original, int length)
+        {
+            byte*[] copy = new byte*[length];
+            for (int i = 0; i < length; i++)
+            {
+                // 分配新的内存块
+                byte* newItem = (byte*)System.Runtime.InteropServices.Marshal.AllocHGlobal(sizeof(byte));
+                *newItem = *original[i];
+                copy[i] = newItem;
+            }
+            return copy;
+        }
+
+        public unsafe static AVFrame DeepCopyFrame(AVFrame srcFrame)
+        {
+            var avframe = new AVFrame
+            {
+                linesize = srcFrame.linesize,
+                width = srcFrame.width,
+                height = srcFrame.height,
+                pts = srcFrame.pts,
+                pkt_dts = srcFrame.pkt_dts,
+                format = srcFrame.format,
+            };
+            // 复制实际的图像数据
+            for (uint i = 0; srcFrame.data[i] != null && i < ffmpeg.AV_NUM_DATA_POINTERS; i++)
+            {
+                int dataSize = ffmpeg.av_image_get_linesize((AVPixelFormat)avframe.format, avframe.width, (int)i) * avframe.height;
+                avframe.data[i] = (byte*)ffmpeg.av_malloc((ulong)dataSize);
+                Buffer.MemoryCopy(srcFrame.data[i], avframe.data[i], dataSize, dataSize);
+            }
+            return avframe;
         }
 
 
@@ -229,176 +289,6 @@ namespace TestServer
                 Console.WriteLine("cach video info:" + key + "-" + videoInfo.DevFrameList.Count);
             }
         }
-        //static int count = -1;
-        // static unsafe void publish(byte[] data)
-        // {
-        //     // Initialize FFmpeg library
-
-        //     ffmpeg.avformat_network_init();
-        //     string rtmpUrl = "rtmp://127.0.0.1/live/sg";
-        //     // Open RTMP output
-        //     var outputFormatContext = ffmpeg.avformat_alloc_context();
-        //     ffmpeg.avformat_alloc_output_context2(&outputFormatContext, null, "flv", rtmpUrl);
-        //     if (outputFormatContext == null)
-        //     {
-        //         Console.WriteLine("Failed to allocate output context.");
-        //         return;
-        //     }
-
-        //     var outputFormat = outputFormatContext->oformat;
-        //     var codec = ffmpeg.avcodec_find_encoder(AVCodecID.AV_CODEC_ID_H264);
-        //     var videoStream = ffmpeg.avformat_new_stream(outputFormatContext, codec);
-        //     if (videoStream == null)
-        //     {
-        //         Console.WriteLine("Failed to create new video stream.");
-        //         return;
-        //     }
-
-        //     videoStream->codecpar->codec_id = AVCodecID.AV_CODEC_ID_H264;
-        //     videoStream->codecpar->codec_type = AVMediaType.AVMEDIA_TYPE_VIDEO;
-        //     videoStream->codecpar->width = 640;
-        //     videoStream->codecpar->height = 480;
-        //     videoStream->codecpar->format = (int)AVPixelFormat.AV_PIX_FMT_YUV420P;
-        //     videoStream->time_base = new AVRational { num = 1, den = 25 }; // 设置帧率
-        //     if ((outputFormat->flags & ffmpeg.AVFMT_NOFILE) == 0)
-        //     {
-        //         AVIOContext* pb;
-        //         if (ffmpeg.avio_open(&pb, rtmpUrl, ffmpeg.AVIO_FLAG_WRITE) < 0)
-        //         {
-        //             Console.WriteLine("Failed to open output file.");
-        //             return;
-        //         }
-        //         outputFormatContext->pb = pb;
-        //     }
-        //     AVDictionary* aVDictionary = null;
-        //     ffmpeg.av_dict_set(&aVDictionary, "flvflags", "no_duration_filesize", 0);
-        //     if (ffmpeg.avformat_write_header(outputFormatContext, &aVDictionary) < 0)
-        //     {
-        //         Console.WriteLine("Error occurred when writing output file header.");
-        //         return;
-        //     }
-
-        //     // Simulate receiving byte[] frame data (replace this with your actual data receiving logic)
-        //     byte[] frameData = data;
-
-        //     // Write frame data
-        //     var packet = ffmpeg.av_packet_alloc();
-        //     ffmpeg.av_init_packet(packet);
-
-        //     packet->pts = count++;
-        //     packet->dts = packet->pts;
-        //     packet->stream_index = 0;
-        //     fixed (byte* waitDecodeData = frameData)
-        //     {
-        //         packet->data = waitDecodeData;
-        //         packet->size = frameData.Length;
-
-        //         ffmpeg.av_write_frame(outputFormatContext, packet);
-        //         ffmpeg.av_packet_free(&packet);
-
-        //         // Write trailer
-        //         ffmpeg.av_write_trailer(outputFormatContext);
-
-        //         // Close RTMP output
-        //         ffmpeg.avio_closep(&outputFormatContext->pb);
-        //         ffmpeg.avformat_free_context(outputFormatContext);
-        //     }
-
-        // }
-
-        // // Simulated method to receive frame data (replace this with your actual data receiving logic)
-
-
-        // static unsafe void publish(AVFrame frame)
-        // {
-        //     // 获取输入YUV参数
-        //     int width = 640;
-        //     int height = 480;
-        //     AVPixelFormat pixelFormat = AVPixelFormat.AV_PIX_FMT_YUV420P;
-
-        //     // 设置输出RTMP地址
-        //     string rtmpUrl = "rtmp://47.92.37.224/live/sg";
-
-        //     // 创建输出AVFormatContext
-        //     AVFormatContext* outputFormatContext;
-        //     ffmpeg.avformat_alloc_output_context2(&outputFormatContext, null, "flv", rtmpUrl);
-
-
-        //     //// 获取视频流
-        //     //var videoStream = outputFormatContext->streams[0];
-
-
-        //     // 打开输出流
-        //     if (ffmpeg.avio_open2(&outputFormatContext->pb, rtmpUrl, ffmpeg.AVIO_FLAG_WRITE, null, null) < 0)
-        //     {
-        //         Console.WriteLine("Failed to open output IO context.");
-        //         return;
-        //     }
-
-        //     // 创建输出视频流
-        //     AVStream* outputStream = ffmpeg.avformat_new_stream(outputFormatContext, null);
-        //     if (outputStream == null)
-        //     {
-        //         Console.WriteLine("Failed to create output stream.");
-        //         return;
-        //     }
-
-        //     // 设置视频流参数
-        //     outputStream->codecpar->codec_type = AVMediaType.AVMEDIA_TYPE_VIDEO;
-        //     outputStream->codecpar->codec_id = AVCodecID.AV_CODEC_ID_H264;
-        //     outputStream->codecpar->width = width;
-        //     outputStream->codecpar->height = height;
-        //     outputStream->codecpar->format = (int)pixelFormat;
-        //     //outputStream->codecpar->bit_rate = 400000;
-        //     outputStream->time_base = new AVRational { num = 1, den = 30 }; // 设置帧率
-
-        //     // 写入输出文件头
-        //     AVDictionary* aVDictionary = null;
-        //     ffmpeg.av_dict_set(&aVDictionary, "flvflags", "no_duration_filesize", 0);
-        //     if (ffmpeg.avformat_write_header(outputFormatContext, &aVDictionary) < 0)
-        //     {
-        //         Console.WriteLine("Error occurred when writing output file header.");
-        //         return;
-        //     }
-
-        //     AVCodecContext* aVCodecContext = null;
-
-        //     // 推送YUV数据到RTMP服务器
-        //     // 创建 AVPacket
-        //     AVPacket packet;
-        //     ffmpeg.av_init_packet(&packet);
-        //     packet.data = null;
-        //     packet.size = 0;
-
-        //     // 将 AVFrame 转换为 AVPacket
-        //     int ret = ffmpeg.avcodec_send_frame(aVCodecContext, &frame);
-        //     if (ret < 0)
-        //     {
-        //         Console.WriteLine("Error sending frame to codec context");
-        //         return;
-        //     }
-
-        //     while (true)
-        //     {
-        //         // 从YUV数据流中读取数据并填充AVFrame
-        //         // 这里需要实现读取YUV数据的逻辑
-
-        //         // 发送YUV数据到输出流
-        //         if (ffmpeg.av_interleaved_write_frame(outputFormatContext, &packet) < 0)
-        //         {
-        //             Console.WriteLine("Error occurred when sending YUV data to output stream.");
-        //             break;
-        //         }
-        //     }
-
-        //     // 写入输出文件尾
-        //     ffmpeg.av_write_trailer(outputFormatContext);
-
-        //     // 清理资源
-        //     ffmpeg.avformat_free_context(outputFormatContext);
-        // }
-
-
 
     }
 

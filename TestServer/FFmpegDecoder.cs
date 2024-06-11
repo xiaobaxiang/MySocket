@@ -95,7 +95,7 @@ namespace FFmpegAnalyzer
 
             fixed (byte* waitDecodeData = frameBytes)
             {
-                Console.WriteLine("decode 1");
+                //Console.WriteLine("decode 1");
                 waitDecodePacket->data = waitDecodeData;
                 waitDecodePacket->size = frameBytes.Length;
                 waitDecodePacket->pts = ffmpeg.av_rescale_q(count++, new AVRational { num = 1, den = 30 }, new AVRational { num = 1, den = 30 }); ;
@@ -107,10 +107,10 @@ namespace FFmpegAnalyzer
                     do
                     {
                         ffmpeg.avcodec_send_packet(_pDecodecContext, waitDecodePacket);
-                        Console.WriteLine("decode 2");
+                        //Console.WriteLine("decode 2");
                         error = ffmpeg.avcodec_receive_frame(_pDecodecContext, waitDecoderFrame);
 
-                        Console.WriteLine("decode 3");
+                        //Console.WriteLine("decode 3");
 
                         if (error < 0) return null;
                         //RtmpPusher.publishFile();
@@ -123,7 +123,7 @@ namespace FFmpegAnalyzer
                 }
 
                 var decodeAfterFrame = ConvertToRgb(waitDecoderFrame);
-                Console.WriteLine("decode 4");
+                //Console.WriteLine("decode 4");
                 var length = _isRgb
                     ? decodeAfterFrame.height * decodeAfterFrame.width * 3
                     : Convert.ToInt32(Math.Floor(decodeAfterFrame.height * decodeAfterFrame.width * 1.5));

@@ -597,7 +597,7 @@ public class ServerSocketAsync : IDisposable
 					//可能有缓存的情况
 					dr.TempStream.Write(dr.Buffer, 0, overs);
 					dr.Buffer = dr.TempStream.ToArray();
-					_serverLog.Information("UnKnown-" + overs + "-" + dr.Buffer.Length + ":" + BitConverter.ToString(dr.Buffer));
+					//_serverLog.Information("UnKnown-" + overs + "-" + dr.Buffer.Length + ":" + BitConverter.ToString(dr.Buffer));
 					var StartBytes = new byte[] { 0xD5, 0xF0, 0x01, 0x00 };
 					//找到起始标志位位置
 
@@ -715,7 +715,7 @@ public class ServerSocketAsync : IDisposable
 					//头部12字节和可能有断包缓存的情况
 					dr.TempStream.Write(dr.Buffer, 0, overs);
 					dr.Buffer = dr.TempStream.ToArray();
-					_serverLog.Information("Body-" + overs + "-" + dr.Buffer.Length + ":" + BitConverter.ToString(dr.Buffer));
+					//_serverLog.Information("Body-" + overs + "-" + dr.Buffer.Length + ":" + BitConverter.ToString(dr.Buffer));
 					dr.AcceptSocket.OnDataAvailable(dr);
 					dr.AcceptSocket.MyHandleDataReceived();
 				}

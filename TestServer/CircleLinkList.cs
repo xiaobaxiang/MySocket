@@ -89,7 +89,7 @@ public class CircleLinkList<T>
     public IEnumerable<T> Filter(Func<T, bool> filterStart, Func<T, bool> filterEnd)
     {
         if (Current == null) yield break;
-        Node<T> current = Current;
+        Node<T> current = Current.Prev;
         do
         {
             if (filterStart(current.Prev.Value))
@@ -102,6 +102,11 @@ public class CircleLinkList<T>
             }
         } while (Current != current);
         Node<T> firstItem = current;
+        if (Current == current)//走到循环头了，头是最后一帧
+        {
+            firstItem = current.Next;
+        }
+        Console.WriteLine("firstItem-" + firstItem.Value);
         do
         {
             if (filterStart(current.Value) && filterEnd(current.Value))

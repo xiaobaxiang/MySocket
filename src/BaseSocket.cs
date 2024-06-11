@@ -329,7 +329,7 @@ public class SocketMessager
 	{
 		get { return new DateTime((this._remoteTime + date1970Second + (int)TimeZoneInfo.Local.BaseUtcOffset.TotalSeconds) * 1000 * 10000, DateTimeKind.Local); }
 	}
-	public object Seq
+	public ushort Seq
 	{
 		get { return _seq; }
 	}

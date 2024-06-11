@@ -150,10 +150,10 @@ namespace TestServer
                         var savePath = AppContext.BaseDirectory + "\\tmp\\" + filename;
 
                         //var filterResult = videInfo.DevFrameList.Filter(x => x.Time >= receive.Time - 10 * 1000, x => x.Time <= receive.Time + 10 * 1000);
-                        var filterResult = videInfo.DevFrameList.Filter(x => x.Time >= receive.Time - 30 * 1000, x => x.Time <= receive.Time + 10 * 1000).ToList();
+                        var filterResult = videInfo.DevFrameList.Filter(x => x.Time >= receive.Time - 10 * 1000, x => x.Time <= receive.Time + 10 * 1000).ToList();
                         var frame = 0;
 
-                        using var MP4Streamer = new MP4Streamer((int)(filterResult.Count / 10));
+                        var MP4Streamer = new MP4Streamer((int)(filterResult.Count / 10));
                         MP4Streamer.Initialize(savePath);
                         foreach (var x in filterResult)
                         {
@@ -168,7 +168,8 @@ namespace TestServer
                             using FileStream fsw = new FileStream(path, FileMode.Append, FileAccess.Write);
                             fsw.Write(x.AVBytes, 0, x.AVBytes.Length);
                         }
-                        receive.File = "http://47.90.177.174/tmp/" + filename;
+                        MP4Streamer.Dispose();
+                        receive.File = "http://video.acesmarttech.com/tmp/" + filename;
                         await SendStrMsg("VideoClipResult", JsonSerializer.Serialize(receive, Program.JsonSerializerOptions));
                     }
                 }

@@ -1,5 +1,6 @@
 ﻿using FFmpeg.AutoGen;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 
 namespace FFmpegAnalyzer
@@ -29,7 +30,6 @@ namespace FFmpegAnalyzer
     */
     public unsafe class MP4Streamer : IDisposable
     {
-        private AVStream* _outputStream = null;
         private AVFormatContext* _outputContext = null;
         private AVCodecContext* _videoCodecContext = null;
         private long framePts = 0;
@@ -37,7 +37,7 @@ namespace FFmpegAnalyzer
         public MP4Streamer(int RATE)
         {
             this.RATE = RATE;
-            ffmpeg.avdevice_register_all();
+            //ffmpeg.avdevice_register_all();
         }
 
         public void Initialize(string filename)
@@ -108,6 +108,8 @@ namespace FFmpegAnalyzer
                 Console.WriteLine("Could not create output context");
                 return;
             }
+            // 设置使用系统时钟作为时间戳
+            pOutputFormatContext->flags |= ffmpeg.AVFMT_FLAG_GENPTS;
 
             AVCodec* codec = ffmpeg.avcodec_find_encoder(AVCodecID.AV_CODEC_ID_H264);
             if (codec == null)
@@ -116,33 +118,43 @@ namespace FFmpegAnalyzer
                 return;
             }
 
+
+            _videoCodecContext = ffmpeg.avcodec_alloc_context3(codec);
+            if (_videoCodecContext == null)
+                throw new ApplicationException("Could not allocate video codec context.");
+
+            // 设置编码参数
+            //_videoCodecContext->bit_rate = 400000;
+            _videoCodecContext->width = 640;
+            _videoCodecContext->height = 480;
+            _videoCodecContext->time_base = new AVRational { num = 1, den = RATE };
+            _videoCodecContext->framerate = new AVRational { num = RATE, den = 1 };
+            _videoCodecContext->gop_size = 100;
+            _videoCodecContext->max_b_frames = 1;
+            _videoCodecContext->pix_fmt = AVPixelFormat.AV_PIX_FMT_YUV420P;
+
+            ffmpeg.av_opt_set(_videoCodecContext->priv_data, "preset", "veryfast", 0);
+            ffmpeg.av_opt_set(_videoCodecContext->priv_data, "tune", "zerolatency", 0);
+
+            // ffmpeg.av_opt_set(_videoCodecContext->priv_data, "preset", "medium", 0);
+            // ffmpeg.av_opt_set(_videoCodecContext->priv_data, "tune", "animation", 0);
+
+            // 如果开头有PPS的话，就不需要这个了 咱们是H264裸流，得要这个
+            if ((codec->capabilities & ffmpeg.AV_CODEC_CAP_DELAY) != 0)
+                _videoCodecContext->flags |= ffmpeg.AV_CODEC_FLAG_GLOBAL_HEADER;
+
+            // 打开编码器
+            if (ffmpeg.avcodec_open2(_videoCodecContext, codec, null) < 0)
+                throw new ApplicationException("Could not open codec.");
+
             var outStream = ffmpeg.avformat_new_stream(pOutputFormatContext, codec);
             if (outStream == null)
             {
                 Console.WriteLine("Could not create video stream");
                 return;
             }
-
-            AVCodecContext* videoCodecContext = ffmpeg.avcodec_alloc_context3(codec);
-            videoCodecContext->width = 640;
-            videoCodecContext->height = 480;
-            videoCodecContext->pix_fmt = AVPixelFormat.AV_PIX_FMT_YUV420P;
-            videoCodecContext->time_base = new AVRational { num = 1, den = RATE };
-            videoCodecContext->framerate = new AVRational { num = RATE, den = 1 };
-
-            if ((pOutputFormatContext->oformat->flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
-            {
-                videoCodecContext->flags |= ffmpeg.AV_CODEC_FLAG_GLOBAL_HEADER;
-            }
-
-            if (ffmpeg.avcodec_open2(videoCodecContext, codec, null) < 0)
-            {
-                Console.WriteLine("Could not open codec");
-                return;
-            }
-
-            ffmpeg.avcodec_parameters_from_context(outStream->codecpar, videoCodecContext);
-            outStream->time_base = videoCodecContext->time_base;
+            outStream->time_base = _videoCodecContext->time_base;
+            ffmpeg.avcodec_parameters_from_context(outStream->codecpar, _videoCodecContext);
 
             if ((pOutputFormatContext->oformat->flags & ffmpeg.AVFMT_NOFILE) == 0)
             {
@@ -158,17 +170,15 @@ namespace FFmpegAnalyzer
                 Console.WriteLine("Error occurred when writing header");
                 return;
             }
-
-            _outputStream = outStream;
             _outputContext = pOutputFormatContext;
-            _videoCodecContext = videoCodecContext;
 
         }
 
 
+        //private long framePtsL = 0;
+
         public void Stream(AVFrame frame)
         {
-            AVPacket* pkt = ffmpeg.av_packet_alloc();
             // //解码时间戳 这个让自增吧 只要小于PTS就可以
             // frame.pkt_dts = framePts;
             // //播放时间戳 如果有音频的话，他们俩的这个值同步就可以并轨了
@@ -201,10 +211,11 @@ namespace FFmpegAnalyzer
             //     ffmpeg.av_packet_unref(pkt);
             // }
 
-            //frame.pkt_dts = framePts++ * (1000 / RATE);
+            AVPacket* pkt = ffmpeg.av_packet_alloc();
+            //解码时间戳 这个让自增吧 只要小于PTS就可以
             frame.pkt_dts = framePts;
-            //frame.pts = framePts++ * (1000 / RATE);
-            frame.pts = framePts++ * 10000;
+            //播放时间戳 如果有音频的话，他们俩的这个值同步就可以并轨了
+            frame.pts = framePts;
 
             if (ffmpeg.avcodec_send_frame(_videoCodecContext, &frame) < 0)
             {
@@ -214,14 +225,20 @@ namespace FFmpegAnalyzer
 
             while (ffmpeg.avcodec_receive_packet(_videoCodecContext, pkt) == 0)
             {
+                pkt->stream_index = 0;
+                pkt->pts = ++framePts * (10000 / RATE);
+                pkt->dts = pkt->pts;
+                pkt->duration = 0;
+                pkt->flags = ffmpeg.AV_PKT_FLAG_KEY;
+
                 var res = ffmpeg.av_interleaved_write_frame(_outputContext, pkt);
                 if (res == 0)
                 {
-                    Console.WriteLine(framePts + "生成成功," + pkt->stream_index);
+                    Console.WriteLine(framePts + ",gen success," + pkt->stream_index);
                 }
                 else
                 {
-                    Console.WriteLine(framePts + "生成失败," + pkt->stream_index + "," + res);
+                    Console.WriteLine(framePts + ",gen fail," + pkt->stream_index + "," + res);
                 }
                 ffmpeg.av_packet_unref(pkt);
             }
@@ -233,7 +250,7 @@ namespace FFmpegAnalyzer
 
         public void Dispose()
         {
-            Console.WriteLine("释放资源");
+            Console.WriteLine("release resource");
             ffmpeg.av_write_trailer(_outputContext);
             fixed (AVFormatContext** ptrOutputContext = &_outputContext)
             {

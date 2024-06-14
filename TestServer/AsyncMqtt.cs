@@ -12,6 +12,7 @@ using System.IO;
 using FFmpegAnalyzer;
 using FFmpeg.AutoGen;
 using System.Linq;
+using System.Diagnostics;
 
 namespace TestServer
 {
@@ -147,6 +148,7 @@ namespace TestServer
                     if (Program.VideoInfoDic.TryGetValue(receive.Sn, out var videInfo) && videInfo != null)
                     {
                         var filename = $"{receive.Sn}-{receive.Time}.mp4";
+                        var yuvfilename = $"{receive.Sn}-{receive.Time}.yuv";
                         var savePath = AppContext.BaseDirectory + "\\tmp\\" + filename;
 
                         //var filterResult = videInfo.DevFrameList.Filter(x => x.Time >= receive.Time - 10 * 1000, x => x.Time <= receive.Time + 10 * 1000);
@@ -156,20 +158,27 @@ namespace TestServer
                         //var MP4Streamer = new MP4Streamer((int)(filterResult.Count / 10));
                         var MP4Streamer = new MP4Streamer(10);
                         MP4Streamer.Initialize(savePath);
+                        var isGen = false;
                         foreach (var x in filterResult)
                         {
                             Console.WriteLine($"current frame -{frame++}-{x.Time}");
                             // using FileStream fsw = new FileStream(savePath, FileMode.Append, FileAccess.Write);
                             // fsw.Write(x.AVFrame, 0, x.AVFrame.Length);
-                            MP4Streamer.Stream(x.AVFrame);
 
+                            MP4Streamer.Stream(x.AVFrame);
+                            isGen = true;
 
                             // //存yuv视频
-                            // var path = AppContext.BaseDirectory + "\\tmp\\" + $"{receive.Sn}-{receive.Time}.yuv";
+                            // var path = AppContext.BaseDirectory + "\\tmp\\" + $"{yuvfilename}";
                             // using FileStream fsw = new FileStream(path, FileMode.Append, FileAccess.Write);
                             // fsw.Write(x.AVBytes, 0, x.AVBytes.Length);
                         }
                         MP4Streamer.Dispose();
+                        if (isGen)
+                        {
+                            filename = reBuildMp4(filename);
+                            //filename = reBuildYUV2Mp4(yuvfilename);
+                        }
                         receive.File = "http://video.acesmarttech.com/tmp/" + filename;
                         await SendStrMsg("VideoClipResult", JsonSerializer.Serialize(receive, Program.JsonSerializerOptions));
                     }
@@ -177,6 +186,83 @@ namespace TestServer
             }
             await Task.CompletedTask;
         }
+
+        /// <summary>
+        /// 重构mp4文件
+        /// </summary>
+        /// <param name="file"></param>
+        private static string reBuildMp4(string file)
+        {
+            var result = "N-" + file;
+            Process p = new Process
+            {
+                StartInfo =
+                {
+                    FileName = AppContext.BaseDirectory+"\\ffmpeg\\bin\\ffmpeg.exe",
+                    Arguments = " -i "+file+" -r 10 "+ result,
+                    WorkingDirectory =  AppContext.BaseDirectory+"\\tmp\\",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardInput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                }
+            };
+            p.Start();
+            var reader = p.StandardError;
+            while (!reader.EndOfStream)
+            {
+                Console.WriteLine(reader.ReadLine());
+            }
+
+            var reader1 = p.StandardOutput;
+            while (!reader1.EndOfStream)
+            {
+                Console.WriteLine(reader1.ReadLine());
+            }
+            p.WaitForExit();
+            return result;
+        }
+
+
+        /// <summary>
+        /// yuv转mp4文件
+        /// </summary>
+        /// <param name="file"></param>
+        private static string reBuildYUV2Mp4(string file)
+        {
+            //var result = "N-" + file.Replace(".yuv", ".mp4");
+            var result = file.Replace(".yuv", ".mp4");
+            Process p = new Process
+            {
+                StartInfo =
+                {
+                    FileName = AppContext.BaseDirectory+"\\ffmpeg\\bin\\ffmpeg.exe",
+                    Arguments = " -pix_fmt yuv420p -s 640x480 -i "+file+" -r 10 -c:v libx264 -pix_fmt yuv420p "+ result,
+                    WorkingDirectory =  AppContext.BaseDirectory+"\\tmp\\",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardInput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                }
+            };
+            p.Start();
+            var reader = p.StandardError;
+            while (!reader.EndOfStream)
+            {
+                Console.WriteLine(reader.ReadLine());
+            }
+
+            var reader1 = p.StandardOutput;
+            while (!reader1.EndOfStream)
+            {
+                Console.WriteLine(reader1.ReadLine());
+            }
+            p.WaitForExit();
+            return result;
+        }
+
 
         /// <summary>
         /// 发送字符消息

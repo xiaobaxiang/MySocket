@@ -182,6 +182,7 @@ namespace TestServer
                         //tmpVideoMem.Dispose();
                         //videoInfo.DevFrameList.Add(new VideoFrame { Time = TimeToken, AVFrame = DeepCopyFrame(res.Item1), AVBytes = res.Item2 });
                         videoInfo.DevFrameList.Add(new VideoFrame { Time = TimeToken, AVFrame = DeepCopyFrame(res.Item1) });
+                        //videoInfo.DevFrameList.Add(new VideoFrame { Time = TimeToken, AVFrame = res.Item1, AVBytes = res.Item2 });
                         videoInfo.VideoStream = new MemoryStream();
                     }
                     catch (SEHException ex)
@@ -218,20 +219,6 @@ namespace TestServer
             server.Start();
             ServerSocketAsync._serverLog.Information($"listen {port}");
             Console.Read();
-        }
-
-        // 用于创建深拷贝的函数
-        static unsafe byte*[] DeepCopy(byte*[] original, int length)
-        {
-            byte*[] copy = new byte*[length];
-            for (int i = 0; i < length; i++)
-            {
-                // 分配新的内存块
-                byte* newItem = (byte*)System.Runtime.InteropServices.Marshal.AllocHGlobal(sizeof(byte));
-                *newItem = *original[i];
-                copy[i] = newItem;
-            }
-            return copy;
         }
 
         public unsafe static AVFrame DeepCopyFrame(AVFrame srcFrame)

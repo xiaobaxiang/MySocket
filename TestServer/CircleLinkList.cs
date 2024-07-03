@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using FFmpeg.AutoGen;
 using TestServer;
 
 public class CircleLinkList<T> where T : VideoFrame, new()
@@ -16,7 +15,7 @@ public class CircleLinkList<T> where T : VideoFrame, new()
         this.capacity = capacity;
     }
 
-    public unsafe void Add(T value)
+    public void Add(T value)
     {
         if (Count < capacity)
         {
@@ -46,10 +45,10 @@ public class CircleLinkList<T> where T : VideoFrame, new()
             var oldVal = Current.Value as VideoFrame;
             if (oldVal != null)
             {
-                AVFrame aVFrame = oldVal.AVFrame;
-                AVFrame* framePtr = &aVFrame;  // 使用取地址符获取指针
-                //ffmpeg.av_frame_free(&framePtr);
-                ffmpeg.av_freep(framePtr);
+                // AVFrame aVFrame = oldVal.AVFrame;
+                // AVFrame* framePtr = &aVFrame;  // 使用取地址符获取指针
+                // //ffmpeg.av_frame_free(&framePtr);
+                // ffmpeg.av_freep(framePtr);
             }
             Current.Value = null;
             Current.Value = value;

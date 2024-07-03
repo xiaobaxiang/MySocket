@@ -598,7 +598,7 @@ public class ServerSocketAsync : IDisposable
 					dr.TempStream.Write(dr.Buffer, 0, overs);
 					dr.Buffer = dr.TempStream.ToArray();
 					//_serverLog.Information("UnKnown-" + overs + "-" + dr.Buffer.Length + ":" + BitConverter.ToString(dr.Buffer));
-					var StartBytes = new byte[] { 0xD5, 0xF0, 0x01, 0x00 };
+					var StartBytes = new byte[] { 0xD6, 0xF0, 0x01, 0x02 };
 					//找到起始标志位位置
 
 					var startIndex = findBytes(dr.Buffer, StartBytes, 0);
@@ -607,10 +607,10 @@ public class ServerSocketAsync : IDisposable
 					if (startIndex > -1)
 					{
 						var dataLen = 0;
-						if (dr.Buffer.Length > 10 + startIndex)
+						if (dr.Buffer.Length > 8 + startIndex)
 						{
-							dataLen = BitConverter.ToUInt16(dr.Buffer, 10 + startIndex);
-							overs = startIndex + 16 + dataLen - dr.Buffer.Length;
+							dataLen = BitConverter.ToUInt16(dr.Buffer, 8 + startIndex);
+							overs = startIndex + 17 + dataLen - dr.Buffer.Length;
 						}
 						else
 						{
@@ -634,18 +634,18 @@ public class ServerSocketAsync : IDisposable
 								return;
 							}
 						}
-						else if (overs < 0)//1466里面有多帧数据
+						else if (overs < 0)//一次有多帧数据
 						{
 							//先取前面一包数据去处理
-							var temBuff = dr.Buffer.Skip(16 + dataLen).ToArray();
-							dr.Buffer = dr.Buffer.Take(16 + dataLen).ToArray();
+							var temBuff = dr.Buffer.Skip(17 + dataLen).ToArray();
+							dr.Buffer = dr.Buffer.Take(17 + dataLen).ToArray();
 							dr.AcceptSocket.OnDataAvailable(dr);
 
 							var secStartIndex = findBytes(temBuff, StartBytes, 0);
-							if (secStartIndex > -1 && temBuff.Length > 10 + secStartIndex)
+							if (secStartIndex > -1 && temBuff.Length > 8 + secStartIndex)
 							{
-								var dataLen2 = BitConverter.ToUInt16(temBuff, 10 + secStartIndex);
-								overs = 16 + dataLen2 - temBuff.Length;
+								var dataLen2 = BitConverter.ToUInt16(temBuff, 8 + secStartIndex);
+								overs = 17 + dataLen2 - temBuff.Length;
 							}
 							else
 							{

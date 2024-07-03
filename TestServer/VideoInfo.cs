@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using FFmpeg.AutoGen;
 
 namespace TestServer
 {
@@ -13,20 +12,20 @@ namespace TestServer
         /// 设备用户ID
         ///</summary>
         public long User { get; set; }
-        ///<summary>
-        /// 当前视频流
-        ///</summary>
-        public MemoryStream VideoStream { get; set; }
+        // ///<summary>
+        // /// 当前视频流
+        // ///</summary>
+        // public MemoryStream VideoStream { get; set; }
 
         ///<summary>
         /// 当前时刻需要保存的照片
         ///</summary>
         public PicItem PicItem { get; set; }
 
-        ///<summary>
-        /// 环形链表保存历史视频流用于生成关键图前后20秒视频使用
-        ///</summary>
-        public CircleLinkList<VideoFrame> DevFrameList { get; set; } = new CircleLinkList<VideoFrame>(500);
+        // ///<summary>
+        // /// 环形链表保存历史视频流用于生成关键图前后20秒视频使用
+        // ///</summary>
+        // public CircleLinkList<VideoFrame> DevFrameList { get; set; } = new CircleLinkList<VideoFrame>(500);
     }
     public class VideoFrame
     {
@@ -38,12 +37,12 @@ namespace TestServer
         ///<summary>
         /// 视频流AVFrame
         ///</summary>
-        public AVFrame AVFrame { get; set; }
-        //public byte[] AVBytes { get; set; }
+        //public AVFrame AVFrame { get; set; }
+        public byte[] AVBytes { get; set; }
 
         public override string ToString()
         {
-            return $"Current frame {Time} {AVFrame.buf.Length}";
+            return $"Current frame {Time} {AVBytes.Length}";
         }
     }
 

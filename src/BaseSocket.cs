@@ -13,9 +13,9 @@ public class BaseSocket
 {
 
 	//public static int HeadLength = 8;
-	public static int HeadLength = 12;//起始到数据长度
-	public static int BuffLength = 1466;
-	public static readonly byte[] StartBytes = new byte[] { 0xD5, 0xF0, 0x01, 0x00 };//起始标志
+	public static int HeadLength = 10;//起始到数据长度
+	public static int BuffLength = 6600;
+	public static readonly byte[] StartBytes = new byte[] { 0xD6, 0xF0, 0x01, 0x02 };//起始标志
 
 	public static Logger _byteLog;
 	static BaseSocket()
@@ -224,33 +224,16 @@ public class SocketMessager
 	private static long date1970Second = Convert.ToInt64((new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Local) - new DateTime(1, 1, 1, 0, 0, 0, DateTimeKind.Local)).TotalSeconds);
 	private int _id;
 	private uint _remoteTime;
-	private ushort _seq;
 	private ushort _dataLen;
-	private byte _ID;
-	private byte _EOF;
-	private byte _currPacket;
-	private byte _totalPacket;
 	private string _sn;
 	private byte[] _picData;
 
-	//public SocketMessager(uint remoteTime, ushort seq, ushort dataLen, byte ID, byte currPacket, byte totalPacket, byte[] bcd, byte[] picData)
-	public SocketMessager(uint remoteTime, ushort seq, ushort dataLen, byte ID, byte EOF, byte currPacket, byte totalPacket, string sn, byte[] picData)
+	public SocketMessager(uint remoteTime, ushort dataLen, string sn, byte[] picData)
 	{
 		this._id = Interlocked.Increment(ref _identity);
 		this._remoteTime = remoteTime;
-		this._seq = seq;
 		this._dataLen = dataLen;
-		this._ID = ID;
 		this._sn = sn;
-		this._EOF = EOF;
-		this._currPacket = currPacket;
-		this._totalPacket = totalPacket;
-		// var bcdSb = new StringBuilder();
-		// for (var i = 0; i < bcd.Length; i++)
-		// {
-		// 	bcdSb.Append(BCDToDecStr(bcd[i]));
-		// }
-		// this._bcd = bcdSb.ToString();
 		this._picData = picData;
 	}
 
@@ -266,29 +249,23 @@ public class SocketMessager
 
 	public override string ToString()
 	{
-		return $"time:{this.RemoteTime.ToString("yyyy-MM-dd HH:mm:ss")}\tid:{this._id}\tseq:{this._seq}\tdataLen:{this._dataLen}\tID:{this._ID}\tEOF:{this._EOF}\tcurrPacket:{this._currPacket}\ttotalPacket:{this._totalPacket}\tsn:{this._sn}\tpicDateLen:{this._picData.Length}";
-		//return $"time:{this.RemoteTime.ToString("yyyy-MM-dd HH:mm:ss")}\tid:{this._id}\tID:{this._ID}\tEOF:{this._EOF}\tcurrPacket:{this._currPacket}\ttotalPacket:{this._totalPacket}\tbcd:{this._bcd}\tpicDateLen:{this._picData.Length}";
+		return $"time:{this.RemoteTime.ToString("yyyy-MM-dd HH:mm:ss")}\tid:{this._id}\t\tdataLen:{this._dataLen}\tsn:{this._sn}\tpicDateLen:{this._picData.Length}";
 	}
 
 	public static SocketMessager Parse(byte[] data)
 	{
 		if (data == null) return null;
-		if (data.Length < 20) return null;
+		if (data.Length < 17) return null;
 		//Console.WriteLine(BitConverter.ToString(data));
 		//int idx = BaseSocket.findBytes(data, new byte[] { 0xD5, 0xF0, 0x01, 0x00 }, 0);
 		int idx = 0;
 		SocketMessager messager;
-		var dataLen = BitConverter.ToUInt16(data, idx + 10);
+		var dataLen = BitConverter.ToUInt16(data, idx + 8);
 		messager = new SocketMessager(
 			BitConverter.ToUInt32(data, idx + 4),
-			BitConverter.ToUInt16(data, idx + 8),
 			dataLen,
-			data[idx + 16],
-			data[idx + 17],
-			data[idx + 18],
-			data[idx + 19],
-			BCDToString(data, idx + 20, 6),
-			data.Skip(26).ToArray()
+			BCDToString(data, idx + 11, 6),
+			data.Skip(17).ToArray()
 		);
 
 		return messager;
@@ -329,11 +306,6 @@ public class SocketMessager
 	{
 		get { return new DateTime((this._remoteTime + date1970Second + (int)TimeZoneInfo.Local.BaseUtcOffset.TotalSeconds) * 1000 * 10000, DateTimeKind.Local); }
 	}
-	public ushort Seq
-	{
-		get { return _seq; }
-	}
-
 	public string Sn
 	{
 		get { return _sn; }
@@ -341,22 +313,6 @@ public class SocketMessager
 	public ushort DataLen
 	{
 		get { return _dataLen; }
-	}
-	public byte ID
-	{
-		get { return _ID; }
-	}
-	public byte EOF
-	{
-		get { return _EOF; }
-	}
-	public byte CurrPacket
-	{
-		get { return _currPacket; }
-	}
-	public byte TotalPacket
-	{
-		get { return _totalPacket; }
 	}
 	public byte[] PicData
 	{

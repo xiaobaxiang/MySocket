@@ -33,7 +33,7 @@ namespace TestServer
             var i = 0;
             client.DisconnectedAsync += async (arg) =>
             {
-                Console.WriteLine("disconnect:{Reason}", arg.Reason);
+                ServerSocketAsync._serverLog.Information("disconnect:{Reason}", arg.Reason);
                 if (i > 0)
                 {
                     await Task.Delay(3000);
@@ -41,15 +41,15 @@ namespace TestServer
                 i++;
                 try
                 {
-                    Console.WriteLine($"mqtt断开连接后重连{i}次");
+                    ServerSocketAsync._serverLog.Information($"mqtt断开连接后重连{i}次");
                     await client.ReconnectAsync();
-                    Console.WriteLine($"reconnect");
+                    ServerSocketAsync._serverLog.Information($"reconnect");
                     //await subscribeTopic();
                     i = 0;
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("reconnect error," + ex.Message);
+                    ServerSocketAsync._serverLog.Information("reconnect error," + ex.Message);
                 }
                 //while (!client.IsConnected)
                 //{
@@ -69,12 +69,12 @@ namespace TestServer
 
             if (connectResult.ResultCode == MqttClientConnectResultCode.Success)
             {
-                Console.WriteLine($"MQTT connected");
+                ServerSocketAsync._serverLog.Information($"MQTT connected");
                 await subscribeTopic();
             }
             else
             {
-                Console.WriteLine($"connect MQTT broker failed: {connectResult.ResultCode}");
+                ServerSocketAsync._serverLog.Information($"connect MQTT broker failed: {connectResult.ResultCode}");
             }
         }
 
@@ -90,13 +90,13 @@ namespace TestServer
                                 Topic= "searchUserResult",
                                 QualityOfServiceLevel = MqttQualityOfServiceLevel.AtMostOnce,
                             },
-                            new MQTTnet.Packets.MqttTopicFilter{
-                                Topic= "VideoClip",
-                                QualityOfServiceLevel = MqttQualityOfServiceLevel.AtMostOnce,
-                            },
+                            // new MQTTnet.Packets.MqttTopicFilter{
+                            //     Topic= "VideoClip",
+                            //     QualityOfServiceLevel = MqttQualityOfServiceLevel.AtMostOnce,
+                            // },
                         }
             });
-            Console.WriteLine("video clip - subscribe success");
+            //Console.WriteLine("video clip - subscribe success");
         }
 
         /// <summary>
@@ -118,7 +118,7 @@ namespace TestServer
             var arg = _arg as MqttApplicationMessageReceivedEventArgs;
             if (arg == null) return;
             var msg = Encoding.UTF8.GetString(arg.ApplicationMessage.PayloadSegment);
-            Console.WriteLine($"received topic:{arg.ApplicationMessage.Topic} msg:\r\n" + msg);
+            ServerSocketAsync._serverLog.Information($"received topic:{arg.ApplicationMessage.Topic} msg:" + msg);
 
             if (arg.ApplicationMessage.Topic == "searchUserResult")
             {
@@ -127,8 +127,9 @@ namespace TestServer
                 {
                     if (Program.VideoInfoDic.TryGetValue(receive.Sn, out var videInfo) && videInfo != null)
                     {
-                        videInfo.User = receive.User;
+                        //videInfo.User = receive.User;
                         videInfo.PicItem.User = receive.User;
+                        videInfo.PicItem.Classify = receive.Classify;
                     }
                 }
             }
@@ -138,7 +139,7 @@ namespace TestServer
                 var receive = JsonSerializer.Deserialize<VideoClip>(msg, Program.JsonSerializerOptions);
                 if (receive != null)
                 {
-                    Console.WriteLine("不支持视频裁剪");
+                    ServerSocketAsync._serverLog.Information("不支持视频裁剪");
                 }
             }
             await Task.CompletedTask;
@@ -156,11 +157,11 @@ namespace TestServer
             if (client.IsConnected)
             {
                 await client.PublishStringAsync(topic + "/" + clientId, msg, MqttQualityOfServiceLevel.AtMostOnce, false);
-                Console.WriteLine("publish success");
+                ServerSocketAsync._serverLog.Information("publish success");
             }
             else
             {
-                Console.WriteLine("client not connected");
+                ServerSocketAsync._serverLog.Information("client not connected");
             }
         }
 
@@ -177,16 +178,16 @@ namespace TestServer
                 try
                 {
                     await client.PublishStringAsync(topic, msg, MqttQualityOfServiceLevel.AtMostOnce, false);
-                    Console.WriteLine("publish success");
+                    ServerSocketAsync._serverLog.Information("publish success");
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine("publish error:" + ex.Message);
+                    ServerSocketAsync._serverLog.Information("publish error:" + ex.Message);
                 }
             }
             else
             {
-                Console.WriteLine("client not connected");
+                ServerSocketAsync._serverLog.Information("client not connected");
             }
         }
 
@@ -209,11 +210,11 @@ namespace TestServer
                     QualityOfServiceLevel = MqttQualityOfServiceLevel.AtMostOnce,
                     Retain = false,
                 });
-                Console.WriteLine("publish success");
+                ServerSocketAsync._serverLog.Information("publish success");
             }
             else
             {
-                Console.WriteLine("client not connected");
+                ServerSocketAsync._serverLog.Information("client not connected");
             }
         }
 

@@ -652,7 +652,7 @@ public class ServerSocketAsync : IDisposable
 								overs = BaseSocket.BuffLength;
 							}
 
-							//_serverLog.Information("UnKnown-继续读取" + overs + "字节");
+							//_serverLog.Information("UnKnown-一次有多帧数据-继续读取下一帧" + overs + "字节");
 							//有未读完的数据
 							MyDataReadInfo drBody = new MyDataReadInfo(overs == BaseSocket.BuffLength ? DataReadInfoType.UnKnown : DataReadInfoType.Body, dr.AcceptSocket, dr.NetworkStream, Math.Abs(overs), Math.Abs(overs));
 							drBody.TempStream.Write(temBuff, 0, temBuff.Length);//缓存有效数据位
@@ -669,6 +669,7 @@ public class ServerSocketAsync : IDisposable
 						}
 						else
 						{
+							//_serverLog.Information("一整包数据处理完毕");
 							//正好是一整包数据
 							dr.AcceptSocket.OnDataAvailable(dr);
 							dr.AcceptSocket.MyHandleDataReceived();
@@ -768,11 +769,11 @@ public class ServerSocketAsync : IDisposable
 		{
 			this.Write(messager, null, TimeSpan.Zero);
 		}
-		public void Write(SocketMessager messager, ReceiveEventHandler receiveHandler)
-		{
-			this.Write(messager, receiveHandler, TimeSpan.FromSeconds(20));
-		}
-		public void Write(SocketMessager messager, ReceiveEventHandler receiveHandler, TimeSpan timeout)
+		// public void Write(SocketMessager messager, ReceiveEventHandler receiveHandler)
+		// {
+		// 	this.Write(messager, receiveHandler, TimeSpan.FromSeconds(20));
+		// }
+		private void Write(SocketMessager messager, ReceiveEventHandler receiveHandler, TimeSpan timeout)
 		{
 			SyncReceive syncReceive = null;
 			try

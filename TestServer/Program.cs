@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Encodings.Web;
 using System.IO;
 using System.Threading.Tasks;
+using System.Threading;
 
 namespace TestServer
 {
@@ -13,7 +14,7 @@ namespace TestServer
         /// <summary>
         /// 获取时间戳
         /// </summary>
-        public static long TimeToken => (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalMilliseconds;
+        public static long TimeToken => (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;
         public static readonly JsonSerializerOptions JsonSerializerOptions = new JsonSerializerOptions()
         {
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
@@ -37,6 +38,7 @@ namespace TestServer
             };
             server.Receive += async (a, b) =>
             {
+                b.AcceptSocket.Write(new SocketMessager(b.Messager.TimeToken, 1, b.Messager.Sn, new byte[] { 0x00 }));
                 ServerSocketAsync._serverLog.Information(b.Messager.ToString());
                 VideoInfoDic.TryGetValue(b.Messager.Sn, out VideoInfo videoInfo);
                 if (videoInfo == null)
@@ -50,19 +52,22 @@ namespace TestServer
                 {
                     if (videoInfo.PicItem == null)
                     {
-                        videoInfo.PicItem = new PicItem { Time = TimeToken };
+                        videoInfo.PicItem = new PicItem { Time = b.Messager.TimeToken };
                     }
                     if (videoInfo.PicItem.Pic1 == null)
                     {
                         videoInfo.PicItem.Pic1 = Convert.ToBase64String(b.Messager.PicData);
+                        File.WriteAllBytes(AppContext.BaseDirectory + "/tmp/" + b.Messager.Sn + "-" + b.Messager.TimeToken + "-1.jpg", b.Messager.PicData);
                     }
                     else if (videoInfo.PicItem.Pic2 == null)
                     {
                         videoInfo.PicItem.Pic2 = Convert.ToBase64String(b.Messager.PicData);
+                        File.WriteAllBytes(AppContext.BaseDirectory + "/tmp/" + b.Messager.Sn + "-" + b.Messager.TimeToken + "-2.jpg", b.Messager.PicData);
                     }
                     else if (videoInfo.PicItem.Pic3 == null)
                     {
                         videoInfo.PicItem.Pic3 = Convert.ToBase64String(b.Messager.PicData);
+                        File.WriteAllBytes(AppContext.BaseDirectory + "/tmp/" + b.Messager.Sn + "-" + b.Messager.TimeToken + "-3.jpg", b.Messager.PicData);
                     }
                     else
                     {
@@ -70,9 +75,10 @@ namespace TestServer
                         videoInfo.PicItem.Pic2 = null;
                         videoInfo.PicItem.Pic3 = null;
                     }
-                    if (videoInfo.PicItem.Pic1 != null && videoInfo.PicItem.Pic2 != null && videoInfo.PicItem.Pic3 != null && videoInfo.User > 0)
+                    if (videoInfo.PicItem.Pic1 != null && videoInfo.PicItem.Pic2 != null && videoInfo.PicItem.Pic3 != null && videoInfo.PicItem.User > 0)
                     {
-                        videoInfo.PicItem.Time = TimeToken;
+                        //videoInfo.PicItem.Time = b.Messager.TimeToken;
+                        videoInfo.PicItem.Time = TimeToken;//先取服务器时间
                         videoInfo.PicItem.Sn = b.Messager.Sn;
                         await AsyncMqtt.SendStrMsg("sendPic", JsonSerializer.Serialize(videoInfo.PicItem, JsonSerializerOptions));
                         videoInfo.PicItem.Pic1 = null;
@@ -106,7 +112,7 @@ namespace TestServer
             //Console.Read();
             while (true)
             {
-                Task.Delay(1000);
+                Thread.Sleep(1000);
             }
         }
 

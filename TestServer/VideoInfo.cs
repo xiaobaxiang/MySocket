@@ -8,10 +8,10 @@ namespace TestServer
     ///</summary>
     public class VideoInfo
     {
-        ///<summary>
-        /// 设备用户ID
-        ///</summary>
-        public long User { get; set; }
+        // ///<summary>
+        // /// 设备用户ID
+        // ///</summary>
+        // public long User { get; set; }
         // ///<summary>
         // /// 当前视频流
         // ///</summary>
@@ -52,6 +52,10 @@ namespace TestServer
     public class PicItem
     {
         public string Sn { get; set; }
+        /// <summary>
+        /// 宠物门,喂食器,饮水机
+        /// </summary>
+        public string Classify { get; set; }
         public long Time { get; set; }
         public long User { get; set; }
 

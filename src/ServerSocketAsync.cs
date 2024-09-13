@@ -609,8 +609,8 @@ public class ServerSocketAsync : IDisposable
 						var dataLen = 0;
 						if (dr.Buffer.Length > 8 + startIndex)
 						{
-							dataLen = BitConverter.ToUInt16(dr.Buffer, 8 + startIndex);
-							overs = startIndex + 17 + dataLen - dr.Buffer.Length;
+							dataLen = BitConverter.ToInt32(dr.Buffer, 8 + startIndex);
+							overs = startIndex + 19 + dataLen - dr.Buffer.Length;
 						}
 						else
 						{
@@ -623,6 +623,12 @@ public class ServerSocketAsync : IDisposable
 							MyDataReadInfo drBody = new MyDataReadInfo(overs == BaseSocket.BuffLength ? DataReadInfoType.UnKnown : DataReadInfoType.Body, dr.AcceptSocket, dr.NetworkStream, overs, overs);
 							var availableBytes = dr.Buffer.Skip(startIndex).ToArray();
 							drBody.TempStream.Write(availableBytes, 0, availableBytes.Length);//缓存有效数据位
+							if (drBody.TempStream.Length > dataLen)//防止异常代码导致死循环一直接收数据
+							{
+								drBody.TempStream.Position = 0;
+								dr.AcceptSocket.MyHandleDataReceived();//获取起始位异常
+								return;
+							}
 							try
 							{
 								drBody.BeginRead();
@@ -637,15 +643,15 @@ public class ServerSocketAsync : IDisposable
 						else if (overs < 0)//一次有多帧数据
 						{
 							//先取前面一包数据去处理
-							var temBuff = dr.Buffer.Skip(17 + dataLen).ToArray();
-							dr.Buffer = dr.Buffer.Take(17 + dataLen).ToArray();
+							var temBuff = dr.Buffer.Skip(19 + dataLen).ToArray();
+							dr.Buffer = dr.Buffer.Take(19 + dataLen).ToArray();
 							dr.AcceptSocket.OnDataAvailable(dr);
 
 							var secStartIndex = findBytes(temBuff, StartBytes, 0);
 							if (secStartIndex > -1 && temBuff.Length > 8 + secStartIndex)
 							{
-								var dataLen2 = BitConverter.ToUInt16(temBuff, 8 + secStartIndex);
-								overs = 17 + dataLen2 - temBuff.Length;
+								var dataLen2 = BitConverter.ToInt32(temBuff, 8 + secStartIndex);
+								overs = 19 + dataLen2 - temBuff.Length;
 							}
 							else
 							{
@@ -696,7 +702,7 @@ public class ServerSocketAsync : IDisposable
 				// 	}
 				// 	else
 				// 	{
-				// 		overs = BitConverter.ToUInt16(dr.Buffer, 10) + 4;
+				// 		overs = BitConverter.ToUInt32(dr.Buffer, 10) + 4;
 				// 		MyDataReadInfo drBody = new MyDataReadInfo(DataReadInfoType.Body, dr.AcceptSocket, dr.NetworkStream, overs, overs);
 				// 		drBody.TempStream.Write(dr.Buffer, 0, dr.Buffer.Length);//缓存头部12字节
 				// 		try

@@ -27,7 +27,7 @@ namespace TestServer
 
         static void Main(string[] args)
         {
-            var port = 9100;
+            var port = 9101;
             var server = new ServerSocketAsync(port); //监听0.0.0.0:19990
 
             var timeTicket = DateTime.Now.Ticks;

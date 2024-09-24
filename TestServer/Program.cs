@@ -1,121 +1,57 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Text.Json;
-using System.Text.Encodings.Web;
-using System.IO;
-using System.Threading.Tasks;
-using System.Threading;
+﻿using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using ServiceSelf;
+using Serilog;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace TestServer
 {
-
     public class Program
     {
-        /// <summary>
-        /// 获取时间戳
-        /// </summary>
-        public static long TimeToken => (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;
-        public static readonly JsonSerializerOptions JsonSerializerOptions = new JsonSerializerOptions()
+        public static ILoggerFactory LoggerFactory { get; set; }
+        static async Task Main(string[] args)
         {
-            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            //ReferenceHandler = ReferenceHandler.Preserve
-            //IgnoreNullValues = true,
-            //WriteIndented = true
-        };
-        public static ConcurrentDictionary<string, VideoInfo> VideoInfoDic = new ConcurrentDictionary<string, VideoInfo>();
+            //设置工作目录位程序发布目录
+            Environment.CurrentDirectory = Directory.GetCurrentDirectory();
+            var configuration = new ConfigurationManager();
+            IHostBuilder builder = Host.CreateDefaultBuilder(args);
 
-        static void Main(string[] args)
-        {
-            var port = 9100;
-            var server = new ServerSocketAsync(port); //监听0.0.0.0:19990
-
-            var timeTicket = DateTime.Now.Ticks;
-            AsyncMqtt.UseMqttMessageReceive();//注册mqtt连接
-            server.Accepted += (a, b) =>
+            var serviceName = configuration["AppSettings:ProjectNo"] ?? "";
+            var serviceOptions = new ServiceOptions
             {
-                ServerSocketAsync._serverLog.Information("new connect" + b.Accepts + "-" + b.AcceptSocket.TcpClient.Client.RemoteEndPoint);
+                Description = configuration["AppSettings:ProjectName"] ?? "",
             };
-            server.Receive += async (a, b) =>
+            if (args.Length > 0)
             {
-                b.AcceptSocket.Write(new SocketMessager(b.Messager.TimeToken, 1, b.Messager.Sn, new byte[] { 0x00 }));
-                ServerSocketAsync._serverLog.Information(b.Messager.ToString());
-                VideoInfoDic.TryGetValue(b.Messager.Sn, out VideoInfo videoInfo);
-                if (videoInfo == null)
+                serviceOptions.Arguments = new List<Argument>();
+                for (var i = 0; i < args.Length; i++)
                 {
-                    videoInfo = new VideoInfo();
-                    VideoInfoDic.TryAdd(b.Messager.Sn, videoInfo);
-                    await AsyncMqtt.SendStrMsg("searchUser", $"{{\"sn\":\"{b.Messager.Sn}\"}}");
+                    serviceOptions.Arguments.Append(new Argument(args[i]));
                 }
-
-                try
-                {
-                    if (videoInfo.PicItem == null)
-                    {
-                        videoInfo.PicItem = new PicItem { Time = b.Messager.TimeToken };
-                    }
-                    if (videoInfo.PicItem.Pic1 == null)
-                    {
-                        videoInfo.PicItem.Pic1 = Convert.ToBase64String(b.Messager.PicData);
-                        File.WriteAllBytes(AppContext.BaseDirectory + "/tmp/" + b.Messager.Sn + "-" + b.Messager.TimeToken + "-1.jpg", b.Messager.PicData);
-                    }
-                    else if (videoInfo.PicItem.Pic2 == null)
-                    {
-                        videoInfo.PicItem.Pic2 = Convert.ToBase64String(b.Messager.PicData);
-                        File.WriteAllBytes(AppContext.BaseDirectory + "/tmp/" + b.Messager.Sn + "-" + b.Messager.TimeToken + "-2.jpg", b.Messager.PicData);
-                    }
-                    else if (videoInfo.PicItem.Pic3 == null)
-                    {
-                        videoInfo.PicItem.Pic3 = Convert.ToBase64String(b.Messager.PicData);
-                        File.WriteAllBytes(AppContext.BaseDirectory + "/tmp/" + b.Messager.Sn + "-" + b.Messager.TimeToken + "-3.jpg", b.Messager.PicData);
-                    }
-                    else
-                    {
-                        videoInfo.PicItem.Pic1 = null;
-                        videoInfo.PicItem.Pic2 = null;
-                        videoInfo.PicItem.Pic3 = null;
-                    }
-                    if (videoInfo.PicItem.Pic1 != null && videoInfo.PicItem.Pic2 != null && videoInfo.PicItem.Pic3 != null && videoInfo.PicItem.User > 0)
-                    {
-                        //videoInfo.PicItem.Time = b.Messager.TimeToken;
-                        videoInfo.PicItem.Time = TimeToken;//先取服务器时间
-                        videoInfo.PicItem.Sn = b.Messager.Sn;
-                        await AsyncMqtt.SendStrMsg("sendPic", JsonSerializer.Serialize(videoInfo.PicItem, JsonSerializerOptions));
-                        videoInfo.PicItem.Pic1 = null;
-                        videoInfo.PicItem.Pic2 = null;
-                        videoInfo.PicItem.Pic3 = null;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    ServerSocketAsync._serverLog.Information(ex?.Message + "\r\n" + ex?.StackTrace);
-                    ServerSocketAsync._serverLog.Error(ex, "error occurred");
-                }
-            };
-            server.Closed += (a, b) =>
-            {
-                //TODO 先屏蔽
-                //按sn当key先不处理
-                // if (b.Accepts > 0 && VideoInfoDic.TryGetValue(b.AcceptSocketId, out var tmpVideo))
-                // {
-                //     tmpVideo.VideoStream?.Dispose();
-                //     VideoInfoDic.TryRemove(b.AcceptSocketId, out _);
-                // }
-                // ServerSocketAsync._serverLog.Information("关闭了连接：{0}", b.AcceptSocketId);
-            };
-            server.Error += (a, b) =>
-            {
-                ServerSocketAsync._serverLog.Information("error occurred ({0})：{1} {2}", b.Errors, b.Exception.Message, b.Exception.StackTrace);
-            };
-            server.Start();
-            ServerSocketAsync._serverLog.Information($"listen {port}");
-            //Console.Read();
-            while (true)
-            {
-                Thread.Sleep(1000);
             }
-        }
+            serviceOptions.WorkingDirectory = Environment.CurrentDirectory;
+            serviceOptions.Linux.Service.Restart = "always";
+            serviceOptions.Linux.Service.RestartSec = "10";
+            serviceOptions.Windows.DisplayName = serviceOptions.Description;
+            serviceOptions.Windows.FailureActionType = WindowsServiceActionType.Restart;
 
+            if (Service.UseServiceSelf(args, serviceName, serviceOptions))
+            {
+                builder.UseSerilog((ctx, cnf) => cnf.ReadFrom.Configuration(ctx.Configuration));//注册Serilog
+                builder.UseServiceSelf();
+
+                builder.ConfigureServices(services =>
+                {
+                    services.AddHostedService<SocketService>();
+                });
+
+                using var host = builder.Build();
+                LoggerFactory = host.Services.GetRequiredService<ILoggerFactory>();
+                await host.RunAsync();
+            }
+
+        }
     }
 
 }

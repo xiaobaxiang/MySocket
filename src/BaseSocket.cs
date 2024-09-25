@@ -1,13 +1,10 @@
 ﻿using System;
 using System.IO;
-using System.IO.Compression;
 using System.Globalization;
 using System.Text;
 using System.Threading;
 using System.Runtime.Serialization.Json;
 using System.Linq;
-using Serilog;
-using Serilog.Core;
 
 public class BaseSocket
 {
@@ -17,19 +14,6 @@ public class BaseSocket
 	public static int BuffLength = 6600;
 	public static readonly byte[] StartBytes = new byte[] { 0xD6, 0xF0, 0x01, 0x02 };//起始标志
 
-	public static Logger _byteLog;
-	static BaseSocket()
-	{
-		var outputTemplate = "{Timestamp:HH:mm:ss.ffffff} [{Level:u3}] {Message:lj}{NewLine}";
-		_byteLog = new LoggerConfiguration()
-		.WriteTo.Console(outputTemplate: outputTemplate)
-		.WriteTo.File("bytelog/.log", outputTemplate: outputTemplate, rollingInterval: RollingInterval.Day)
-		.CreateLogger();
-	}
-	public static void WriteLog(string log)
-	{
-		_byteLog.Information(log);
-	}
 	//public static int BuffLength = 1450;
 	public static byte[] Read(Stream stream, byte[] end)
 	{

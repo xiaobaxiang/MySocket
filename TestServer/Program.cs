@@ -15,7 +15,7 @@ namespace TestServer
             //设置工作目录位程序发布目录
             Environment.CurrentDirectory = Directory.GetCurrentDirectory();
             var configuration = new ConfigurationManager();
-            IHostBuilder builder = Host.CreateDefaultBuilder(args);
+            var builder = Host.CreateDefaultBuilder(args);
 
             var serviceName = configuration["AppSettings:ProjectNo"] ?? "";
             var serviceOptions = new ServiceOptions
@@ -43,7 +43,9 @@ namespace TestServer
 
                 builder.ConfigureServices(services =>
                 {
-                    services.AddHostedService<SocketService>();
+                    services.AddSingleton<MqttTask>();
+                    services.AddHostedService<SocketService>();//接收抓拍图片 注册的是单例的程序
+                    services.AddHostedService<MqttService>();//推送每秒三张图片 注册的是单例的程序
                 });
 
                 using var host = builder.Build();

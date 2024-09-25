@@ -7,16 +7,10 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
-using Serilog;
-using System.Threading.Tasks;
-using Serilog.Core;
+using Microsoft.Extensions.Logging;
 
 public class ServerSocketAsync : IDisposable
 {
-	public ServerSocketAsync(ILogger logger)
-	{
-		_log = logger;
-	}
 	private TcpListener _tcpListener;
 	private Dictionary<int, AcceptSocket> _clients = new Dictionary<int, AcceptSocket>();
 	private object _clients_lock = new object();
@@ -36,9 +30,10 @@ public class ServerSocketAsync : IDisposable
 
 	private ILogger _log { get; }
 
-	public ServerSocketAsync(int port)
+	public ServerSocketAsync(int port, ILogger logger)
 	{
 		this._port = port;
+		_log = logger;
 	}
 
 	public void Start()
@@ -58,7 +53,7 @@ public class ServerSocketAsync : IDisposable
 			{
 				this._running = false;
 				this.OnError(ex);
-				_log.Error(ex, "start error");
+				_log.LogError(ex, "start error");
 				return;
 			}
 			this._beginAcceptTcpClient = this._tcpListener.BeginAcceptTcpClient(HandleTcpClientAccepted, null);
@@ -84,7 +79,7 @@ public class ServerSocketAsync : IDisposable
 				catch (Exception ex)
 				{
 					this.OnError(ex);
-					_log.Error(ex, "accept Socket error");
+					_log.LogError(ex, "accept Socket error");
 				}
 
 				this._beginAcceptTcpClient = this._tcpListener.BeginAcceptTcpClient(HandleTcpClientAccepted, null);
@@ -92,7 +87,7 @@ public class ServerSocketAsync : IDisposable
 			catch (Exception ex)
 			{
 				this.OnError(ex);
-				_log.Error(ex, "accept Tcp Client error");
+				_log.LogError(ex, "accept Tcp Client error");
 			}
 		}
 	}
@@ -216,7 +211,7 @@ public class ServerSocketAsync : IDisposable
 				catch (Exception ex)
 				{
 					this.OnError(ex);
-					_log.Error(ex, "OnAccepted error");
+					_log.LogError(ex, "OnAccepted error");
 				}
 			}
 		}
@@ -271,12 +266,12 @@ public class ServerSocketAsync : IDisposable
 	{
 		ErrorEventArgs e = new ErrorEventArgs(-1, ex, null);
 		this.OnError(e);
-		_log.Error(ex, "OnError error");
+		_log.LogError(ex, "OnError error");
 	}
 	internal void OnError2(ErrorEventArgs e)
 	{
 		this.OnError(e);
-		_log.Error(e.Exception, "OnError2 error");
+		_log.LogError(e.Exception, "OnError2 error");
 	}
 
 	#region IDisposable 成员
@@ -334,7 +329,7 @@ public class ServerSocketAsync : IDisposable
 				{
 					this._running = false;
 					this.OnError(ex);
-					_log.Error(ex, "HandleDataReceived GetStream error");
+					_log.LogError(ex, "HandleDataReceived GetStream error");
 				}
 			}
 		}
@@ -354,7 +349,7 @@ public class ServerSocketAsync : IDisposable
 				catch (Exception ex)
 				{
 					this._running = false;
-					_log.Error(ex, "MyHandleDataReceived GetStream error");
+					_log.LogError(ex, "MyHandleDataReceived GetStream error");
 				}
 			}
 		}
@@ -526,7 +521,7 @@ public class ServerSocketAsync : IDisposable
 				catch (Exception ex)
 				{
 					dr.AcceptSocket.OnError(ex);
-					dr._log.Error(ex, "HandleDataRead error");
+					dr._log.LogError(ex, "HandleDataRead error");
 					return;
 				}
 				if (overs > 0)
@@ -570,7 +565,7 @@ public class ServerSocketAsync : IDisposable
 				catch (Exception ex)
 				{
 					dr.AcceptSocket.OnError(ex);
-					dr._log.Error(ex, "MyHandleDataRead error");
+					dr._log.LogError(ex, "MyHandleDataRead error");
 					return;
 				}
 				if (overs == 0)
@@ -583,7 +578,7 @@ public class ServerSocketAsync : IDisposable
 				dr.Over -= overs;
 				if (dr.Over > 0)
 				{
-					//_log.Information("已读取" + overs + "没有读取完" + dr.Over + "继续读取 " + dr.Buffer.Length);
+					//_log.LogInformation("已读取" + overs + "没有读取完" + dr.Over + "继续读取 " + dr.Buffer.Length);
 					dr.TempStream.Write(dr.Buffer, 0, overs);//缓存收到的断包数据
 					try
 					{
@@ -592,7 +587,7 @@ public class ServerSocketAsync : IDisposable
 					catch (Exception ex)
 					{
 						dr.AcceptSocket.OnError(ex);
-						dr._log.Error(ex, "Over BeginRead error");
+						dr._log.LogError(ex, "Over BeginRead error");
 						return;
 					}
 				}
@@ -601,13 +596,13 @@ public class ServerSocketAsync : IDisposable
 					//可能有缓存的情况
 					dr.TempStream.Write(dr.Buffer, 0, overs);
 					dr.Buffer = dr.TempStream.ToArray();
-					//dr._log.Information("UnKnown-" + overs + "-" + dr.Buffer.Length + ":" + BitConverter.ToString(dr.Buffer));
+					//dr._log.LogInformation("UnKnown-" + overs + "-" + dr.Buffer.Length + ":" + BitConverter.ToString(dr.Buffer));
 					var StartBytes = new byte[] { 0xD6, 0xF0, 0x01, 0x02 };
 					//找到起始标志位位置
 
 					var startIndex = findBytes(dr.Buffer, StartBytes, 0);
 					if (startIndex > 0)
-						dr._log.Information("start frame position -" + startIndex);
+						dr._log.LogInformation("start frame position -" + startIndex);
 					if (startIndex > -1)
 					{
 						var dataLen = 0;
@@ -622,7 +617,7 @@ public class ServerSocketAsync : IDisposable
 						}
 						if (overs > 0)
 						{
-							//dr._log.Information("UnKnown-继续读取" + overs + "字节");
+							//dr._log.LogInformation("UnKnown-继续读取" + overs + "字节");
 							//有未读完的数据
 							MyDataReadInfo drBody = new MyDataReadInfo(overs == BaseSocket.BuffLength ? DataReadInfoType.UnKnown : DataReadInfoType.Body, dr.AcceptSocket, dr.NetworkStream, overs, overs, dr._log);
 							var availableBytes = dr.Buffer.Skip(startIndex).ToArray();
@@ -634,7 +629,7 @@ public class ServerSocketAsync : IDisposable
 							catch (Exception ex)
 							{
 								dr.AcceptSocket.OnError(ex);
-								dr._log.Error(ex, "Body BeginRead error");
+								dr._log.LogError(ex, "Body BeginRead error");
 								return;
 							}
 						}
@@ -656,7 +651,7 @@ public class ServerSocketAsync : IDisposable
 								overs = BaseSocket.BuffLength;
 							}
 
-							//_log.Information("UnKnown-一次有多帧数据-继续读取下一帧" + overs + "字节");
+							//_log.LogInformation("UnKnown-一次有多帧数据-继续读取下一帧" + overs + "字节");
 							//有未读完的数据
 							MyDataReadInfo drBody = new MyDataReadInfo(overs == BaseSocket.BuffLength ? DataReadInfoType.UnKnown : DataReadInfoType.Body, dr.AcceptSocket, dr.NetworkStream, Math.Abs(overs), Math.Abs(overs), dr._log);
 							drBody.TempStream.Write(temBuff, 0, temBuff.Length);//缓存有效数据位
@@ -667,13 +662,13 @@ public class ServerSocketAsync : IDisposable
 							catch (Exception ex)
 							{
 								dr.AcceptSocket.OnError(ex);
-								dr._log.Error(ex, "Body BeginRead error");
+								dr._log.LogError(ex, "Body BeginRead error");
 								return;
 							}
 						}
 						else
 						{
-							//dr._log.Information("一整包数据处理完毕");
+							//dr._log.LogLogInformation("一整包数据处理完毕");
 							//正好是一整包数据
 							dr.AcceptSocket.OnDataAvailable(dr);
 							dr.AcceptSocket.MyHandleDataReceived();
@@ -690,11 +685,11 @@ public class ServerSocketAsync : IDisposable
 				// 	//头部12字节部分字节可能有缓存的情况
 				// 	dr.TempStream.Write(dr.Buffer, 0, overs);
 				// 	dr.Buffer = dr.TempStream.ToArray();
-				// 	_log.Information("Head-" + overs + ":" + BitConverter.ToString(dr.Buffer));
+				// 	_log.LogInformation("Head-" + overs + ":" + BitConverter.ToString(dr.Buffer));
 				// 	//判断有无获取数据错乱的情况
 				// 	if (!(dr.Buffer[0] == BaseSocket.StartBytes[0] && dr.Buffer[1] == BaseSocket.StartBytes[1] && dr.Buffer[2] == BaseSocket.StartBytes[2] && dr.Buffer[3] == BaseSocket.StartBytes[3]))
 				// 	{
-				// 		_log.Information("起始标志错误,重新获取");
+				// 		_log.LogInformation("起始标志错误,重新获取");
 				// 		dr.AcceptSocket.MyHandleDataReceived();
 				// 		return;
 				// 	}
@@ -710,7 +705,7 @@ public class ServerSocketAsync : IDisposable
 				// 		catch (Exception ex)
 				// 		{
 				// 			dr.AcceptSocket.OnError(ex);
-				// 			_log.Error(ex, "Body BeginRead error");
+				// 			_log.LogError(ex, "Body BeginRead error");
 				// 			return;
 				// 		}
 				// 	}
@@ -720,7 +715,7 @@ public class ServerSocketAsync : IDisposable
 					//头部12字节和可能有断包缓存的情况
 					dr.TempStream.Write(dr.Buffer, 0, overs);
 					dr.Buffer = dr.TempStream.ToArray();
-					//_log.Information("Body-" + overs + "-" + dr.Buffer.Length + ":" + BitConverter.ToString(dr.Buffer));
+					//_log.LogInformation("Body-" + overs + "-" + dr.Buffer.Length + ":" + BitConverter.ToString(dr.Buffer));
 					dr.AcceptSocket.OnDataAvailable(dr);
 					dr.AcceptSocket.MyHandleDataReceived();
 				}
@@ -822,7 +817,7 @@ public class ServerSocketAsync : IDisposable
 			{
 				this._running = false;
 				this.OnError(ex);
-				_log.Error(ex, "Write error");
+				_log.LogError(ex, "Write error");
 				if (syncReceive != null)
 				{
 					syncReceive.Wait.Set();
@@ -851,7 +846,7 @@ public class ServerSocketAsync : IDisposable
 			catch (Exception ex)
 			{
 				this.OnError(ex);
-				_log.Error(ex, "OnClosed error");
+				_log.LogError(ex, "OnClosed error");
 			}
 		}
 
@@ -864,7 +859,7 @@ public class ServerSocketAsync : IDisposable
 			catch (Exception ex)
 			{
 				this.OnError(ex);
-				_log.Error(ex, "OnReceive2 error");
+				_log.LogError(ex, "OnReceive2 error");
 			}
 		}
 

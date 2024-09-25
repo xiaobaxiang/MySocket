@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -9,6 +10,8 @@ namespace TestServer;
 public sealed class SocketService : IHostedService, IHostedLifecycleService
 {
     private readonly ILogger _logger;
+    private readonly IConfiguration _configuration;
+    private readonly MqttTask _mqttTask;
 
     /// <summary>
     /// 获取时间戳
@@ -26,9 +29,13 @@ public sealed class SocketService : IHostedService, IHostedLifecycleService
 
     public SocketService(
         ILogger<SocketService> logger,
+        IConfiguration configuration,
+        MqttTask mqttTask,
         IHostApplicationLifetime appLifetime)
     {
         _logger = logger;
+        _configuration = configuration;
+        _mqttTask = mqttTask;
 
         appLifetime.ApplicationStarted.Register(OnStarted);
         appLifetime.ApplicationStopping.Register(OnStopping);
@@ -60,11 +67,10 @@ public sealed class SocketService : IHostedService, IHostedLifecycleService
     {
         _logger.LogInformation("4. OnStarted has been called.");
 
-        var port = 9100;
-        var server = new ServerSocketAsync(port); //监听0.0.0.0:19990
+        var port = _configuration.GetValue<int>("AppSettings:ServerPort");
+        var server = new ServerSocketAsync(port, _logger); //监听0.0.0.0:19990
 
         var timeTicket = DateTime.Now.Ticks;
-        AsyncMqtt.UseMqttMessageReceive();//注册mqtt连接
         server.Accepted += (a, b) =>
         {
             _logger.LogInformation("new connect" + b.Accepts + "-" + b.AcceptSocket.TcpClient.Client.RemoteEndPoint);
@@ -78,7 +84,7 @@ public sealed class SocketService : IHostedService, IHostedLifecycleService
             {
                 videoInfo = new VideoInfo();
                 VideoInfoDic.TryAdd(b.Messager.Sn, videoInfo);
-                await AsyncMqtt.SendStrMsg("searchUser", $"{{\"sn\":\"{b.Messager.Sn}\"}}");
+                await _mqttTask.SendStrMsg("searchUser", $"{{\"sn\":\"{b.Messager.Sn}\"}}");
             }
 
             try
@@ -113,7 +119,7 @@ public sealed class SocketService : IHostedService, IHostedLifecycleService
                     //videoInfo.PicItem.Time = b.Messager.TimeToken;
                     videoInfo.PicItem.Time = TimeToken;//先取服务器时间
                     videoInfo.PicItem.Sn = b.Messager.Sn;
-                    await AsyncMqtt.SendStrMsg("sendPic", JsonSerializer.Serialize(videoInfo.PicItem, JsonSerializerOptions));
+                    await _mqttTask.SendStrMsg("sendPic", JsonSerializer.Serialize(videoInfo.PicItem, JsonSerializerOptions));
                     videoInfo.PicItem.Pic1 = null;
                     videoInfo.PicItem.Pic2 = null;
                     videoInfo.PicItem.Pic3 = null;

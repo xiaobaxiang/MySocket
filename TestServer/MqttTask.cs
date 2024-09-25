@@ -4,29 +4,31 @@ using MQTTnet;
 using MQTTnet.Protocol;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 
 namespace TestServer
 {
-    public static class AsyncMqtt
+    public class MqttTask
     {
-        private static ILogger _log { get; } = Program.LoggerFactory.CreateLogger<Program>();
-        private static IMqttClient client;
-        public static void UseMqttMessageReceive()
+        private ILogger _log { get; }
+        private IConfiguration _configuration { get; }
+        private IMqttClient client;
+        public MqttTask(ILogger<MqttTask> logger, IConfiguration configuration)
         {
-            //处理mqtt消息
-            Task.Factory.StartNew(ConnetToMqtt, TaskCreationOptions.LongRunning);
+            _log = logger;
+            _configuration = configuration;
         }
 
-        private static async Task ConnetToMqtt()
+        public async Task ConnetToMqtt()
         {
             // 创建 MQTT 实例
             client = new MqttFactory().CreateMqttClient();
 
             // 创建 MQTT 客户端选项
             var options = new MqttClientOptionsBuilder()
-                .WithTcpServer("172.31.143.4", 7076) // MQTT broker 地址 端口 121.43.125.138 172.31.143.4 172.26.255.91 emqx.zzcyi.cn 47.90.134.89:7083
-                .WithClientId("ffmpeg_client")
-                .WithCredentials("admin", "eLzuAJ@ghcZJkAD4m") // 设置账号密码 eLzuAJ@ghcZJkAD4m 1ad6c09e eLzuAJ@ghcZJkAD4m
+                .WithTcpServer(_configuration.GetValue<string>("AppSettings:MqttServer"), _configuration.GetValue<int>("AppSettings:MqttPort"))
+                .WithClientId(_configuration.GetValue<string>("AppSettings:MqttClientId"))
+                .WithCredentials(_configuration.GetValue<string>("AppSettings:MqttUserName"), _configuration.GetValue<string>("AppSettings:MqttPassword"))
                 .Build();
 
             var i = 0;
@@ -42,27 +44,21 @@ namespace TestServer
                 {
                     _log.LogInformation($"mqtt断开连接后重连{i}次");
                     await client.ReconnectAsync();
-                    _log.LogInformation($"reconnect");
-                    //await subscribeTopic();
+                    _log.LogInformation("reconnect success");
+                    await subscribeTopic();
                     i = 0;
                 }
                 catch (Exception ex)
                 {
                     _log.LogInformation("reconnect error," + ex.Message);
                 }
-                //while (!client.IsConnected)
-                //{
-                //    i++;
-                //    await ReConnect();
-                //    log.LogInformation($"mqtt断开连接后重连{i}次");
-                //    Thread.Sleep(1000);
-                //}
             };
 
             client.ApplicationMessageReceivedAsync += (arg) =>
             {
                 return Task.Factory.StartNew(ParseProto, arg);
             };
+            _log.LogInformation($"connect to MQTT");
             // 连接 MQTT broker
             var connectResult = await client.ConnectAsync(options);
 
@@ -77,7 +73,7 @@ namespace TestServer
             }
         }
 
-        private async static Task subscribeTopic()
+        private async Task subscribeTopic()
         {
             if (client == null || !client.IsConnected)
                 return;
@@ -99,20 +95,11 @@ namespace TestServer
         }
 
         /// <summary>
-        /// 重新连接
-        /// </summary>
-        private static Task ReConnect()
-        {
-            //return client.ReconnectAsync();
-            return ConnetToMqtt();
-        }
-
-        /// <summary>
         /// 解析接收到的消息
         /// </summary>
         /// <param name="_arg"></param>
         /// <returns></returns>
-        private static async Task ParseProto(object _arg)
+        private async Task ParseProto(object _arg)
         {
             var arg = _arg as MqttApplicationMessageReceivedEventArgs;
             if (arg == null) return;
@@ -151,9 +138,9 @@ namespace TestServer
         /// <param name="topic"></param>
         /// <param name="msg"></param>
         /// <returns></returns>
-        public static async Task SendStrMsg(string clientId, string topic, string msg)
+        public async Task SendStrMsg(string clientId, string topic, string msg)
         {
-            if (client.IsConnected)
+            if (client != null && client.IsConnected)
             {
                 await client.PublishStringAsync(topic + "/" + clientId, msg, MqttQualityOfServiceLevel.AtMostOnce, false);
                 _log.LogInformation("publish success");
@@ -170,9 +157,9 @@ namespace TestServer
         /// <param name="topic"></param>
         /// <param name="msg"></param>
         /// <returns></returns>
-        public static async Task SendStrMsg(string topic, string msg)
+        public async Task SendStrMsg(string topic, string msg)
         {
-            if (client.IsConnected)
+            if (client != null && client.IsConnected)
             {
                 try
                 {
@@ -197,10 +184,9 @@ namespace TestServer
         /// <param name="topic"></param>
         /// <param name="msg"></param>
         /// <returns></returns>
-
-        public static async Task SendByteMsg(string clientId, string topic, byte[] msg)
+        public async Task SendByteMsg(string clientId, string topic, byte[] msg)
         {
-            if (client.IsConnected)
+            if (client != null && client.IsConnected)
             {
                 await client.PublishAsync(new MqttApplicationMessage
                 {
@@ -216,7 +202,6 @@ namespace TestServer
                 _log.LogInformation("client not connected");
             }
         }
-
     }
 
 }

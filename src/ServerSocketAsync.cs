@@ -622,6 +622,12 @@ public class ServerSocketAsync : IDisposable
 							MyDataReadInfo drBody = new MyDataReadInfo(overs == BaseSocket.BuffLength ? DataReadInfoType.UnKnown : DataReadInfoType.Body, dr.AcceptSocket, dr.NetworkStream, overs, overs, dr._log);
 							var availableBytes = dr.Buffer.Skip(startIndex).ToArray();
 							drBody.TempStream.Write(availableBytes, 0, availableBytes.Length);//缓存有效数据位
+							if (drBody.TempStream.Length > dataLen)//防止异常字节导致死循环一直接收数据
+							{
+								drBody.TempStream.Position = 0;
+								dr.AcceptSocket.MyHandleDataReceived();//获取起始位异常
+								return;
+							}
 							try
 							{
 								drBody.BeginRead();
